@@ -17,11 +17,12 @@ We leverage the power of process algebra to model system behavior:
 ---
 
 ## Documentation
-For a detailed technical breakdown of the library primitives, including Channels, Processes, and External Choice, please see our:
+Access the core technical resources for designing safe process networks:
 
-👉 **[CSP4CMSIS API Reference](./api.md)**
+* 👉 **[Online API Reference](./api)** — Detailed breakdown of library primitives.
+* 📄 **[Download Quick Reference Cheatsheet (PDF)](./CSP4CMSIS_cheatcheet.pdf)** — A single-page LaTeX guide to CSP-to-C++ mappings.
 
---- 
+---
 
 ## Technical Demos & Repositories
 
