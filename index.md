@@ -10,9 +10,9 @@ In the era of "AI at the Edge," the industry faces a **Safety Wall**. Traditiona
 
 ### Core Formalisms
 We leverage the power of process algebra to model system behavior:
-* **External Choice ($\square$):** For truly reactive, event-driven sensor handling.
-* **Parallel Composition ($\parallel$):** For verified, deadlock-free process networks.
-* **Internal Choice ($\sqcap$):** To formally wrap and isolate AI decision-making.
+* **External Choice (☐):** For truly reactive, event-driven sensor handling.
+* **Parallel Composition (∥):** For verified, deadlock-free process networks.
+* **Internal Choice (⊓):** To formally wrap and isolate AI decision-making.
 
 ---
 
