@@ -1,4 +1,20 @@
-title: CSP4CMSIS
-description: Formal Process Networks for Safe Embedded AI on ARM Silicon
-theme: jekyll-theme-minimal
-show_downloads: true
+---
+---
+@import "{{ site.theme }}";
+
+body {
+  font-size: 18px; 
+  line-height: 1.6;
+  color: #333;
+}
+
+/* Ensure code blocks are also easy to read */
+code, pre {
+  font-size: 0.9em;
+}
+
+/* Make headers slightly more prominent */
+h1, h2, h3 {
+  margin-top: 1.5em;
+  font-weight: bold;
+}
