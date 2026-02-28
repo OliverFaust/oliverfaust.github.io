@@ -63,7 +63,20 @@ extern "C" void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     }
 }
 ```
-4. Network OrchestrationTo run the processes, they must be composed into a network.InParallel(P1, P2, ...)This function represents the CSP Parallel operator ($\parallel$). It groups process instances together for simultaneous execution.Run(...)The entry point for the CSP engine.Execution Mode: ExecutionMode::StaticNetwork is used for high-integrity systems where tasks are launched once at startup and never deleted.Example:C++void MainApp_Task(void* params) {
+## 4. Network Orchestration
+To run the processes, they must be composed into a network.
+
+`InParallel(P1, P2, ...)`
+
+This function represents the CSP Parallel operator ($\parallel$). It groups process instances together for simultaneous execution.
+
+`Run(...)`
+
+The entry point for the CSP engine.
+* **Execution Mode:** `ExecutionMode::StaticNetwork` is used for high-integrity systems where tasks are launched once at startup and never deleted.
+* **Example:**
+```C++
+void MainApp_Task(void* params) {
     static MyProcess p1(chan.writer());
     static MyOtherProcess p2(chan.reader());
 
@@ -72,4 +85,58 @@ extern "C" void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         ExecutionMode::StaticNetwork
     );
 }
-5. Best Practices: "Order and Method"Static Allocation: Always declare Channels and Processes as static within your task entry point. This guarantees that the memory is reserved at compile-time, satisfying safety-critical requirements.Rendezvous Safety: Remember that in >> msg and out << msg are blocking. If your system "hangs," examine your network for Deadlock—a situation where two processes are waiting for each other in a circle.POD Data: Messages should be "Plain Old Data" (structs with simple types) to ensure efficient copying across channel boundaries.
+```
+---
+
+## 5. External Choice (Alternative / ALT)
+
+The `Alternative` class implements the CSP External Choice operator ($\square$). it allows a process to wait on multiple input channels simultaneously, proceeding as soon as any one of them is ready.
+
+### `Alternative`
+The `Alternative` object is typically constructed on the process stack. It uses a "Resident-Guard" pattern that is entirely heap-free.
+
+* **Syntax**: `Alternative alt(Guard1, Guard2, ...);`
+* **Guard Binding (`|`)**: To bind a channel to a local variable, use the pipe operator: `chan_in | message_variable`. This ensures that when the channel is selected, the data is automatically copied into the variable.
+
+### `fairSelect()`
+This method blocks the process until at least one of the guarded channels is ready to synchronize. 
+
+* **Fairness**: It uses a "Fair" selection algorithm to prevent starvation, ensuring that if multiple channels are ready, one is not consistently ignored.
+* **Return Value**: Returns an `int` representing the index of the selected channel (starting at 0).
+
+**Example Usage**:
+```cpp
+void Receiver::run() {
+    Message msgA, msgB;
+    // Bind channels to local variables
+    Alternative alt(inA | msgA, inB | msgB);
+
+    while(true) {
+        // Blocks until a message arrives on either inA or inB
+        int selected = alt.fairSelect();
+
+        switch(selected) {
+            case 0:
+                // msgA is already populated
+                printf("Received from A: %d\n", msgA.sequence_num);
+                break;
+            case 1:
+                // msgB is already populated
+                printf("Received from B: %d\n", msgB.sequence_num);
+                break;
+        }
+    }
+}
+```
+## 6. Memory and Safety Guarantees
+### Zero-Heap Execution
+`csp4cmsis` is designed for safety-critical ARM environments where dynamic memory allocation (the "Heap") is prohibited after system initialization.
+1. **Static Channels:** Channels should be declared as static to reside in the `.data` or `.bss` segments.
+2. **Stack-Based ALT:** The Alternative object and its guards reside on the task stack, ensuring deterministic memory usage.
+3. **No New/Delete:** The library does not perform hidden allocations during communication or selection.
+
+### Deterministic Synchronization
+Unlike standard RTOS queues, csp4cmsis channels default to *Rendezvous* (capacity 0). This means:
+* The *Sender* blocks until the *Receiver* arrives.
+* The *Receiver* blocks until the *Sender* arrives.
+* The data transfer happens only when both "shake hands," providing a formal proof of synchronization.
