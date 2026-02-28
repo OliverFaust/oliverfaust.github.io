@@ -6,8 +6,9 @@ description: >
   <a href="./CSP4CMSIS_cheatcheet.pdf">Download Cheatsheet</a>
 theme: jekyll-theme-minimal
 show_downloads: true
+mathjs: true
 
 # This ensures the compiler uses the SCSS overrides
 remote_theme: pages-themes/minimal@v0.2.0
 
-mathjs: true
+
