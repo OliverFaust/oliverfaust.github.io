@@ -45,3 +45,7 @@ We are currently seeking partners for the **DSIT TechLocal AI Professional Degre
 **Calling ARM & Cambridge-based Industry Partners:** If you are interested in supporting this traineeship model or integrating these formal methods into your safety-critical workflow, please get in touch.
 
 [Contact Oliver Faust via GitHub](https://github.com/OliverFaust)
+
+<script type="text/javascript" async
+  src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
