@@ -9,3 +9,5 @@ show_downloads: true
 
 # This ensures the compiler uses the SCSS overrides
 remote_theme: pages-themes/minimal@v0.2.0
+
+mathjs: true
