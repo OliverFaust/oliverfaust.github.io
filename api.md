@@ -31,10 +31,22 @@ public:
 ## 2. Channel Communication
 Channels provide the synchronization "handshake" (Rendezvous) between processes.
 
-### `Channel<T>`
-A point-to-point synchronization primitive. In the current version, these are typically declared as `static` to ensure Zero-Heap allocation.
-* Declaration: static Channel<Message> msg_chan;
-* Endpoints: Access the endpoints via .reader() and .writer().
+### Channel<T> (Rendezvous)
+The default point-to-point synchronization primitive (Capacity 0).
+* **Behavior:** Strict Rendezvous. The sender blocks until the receiver arrives, and vice versa.
+* **Declaration:** `static Channel<Message> msg_chan;`
+
+### `BufferedOne2OneChannel<T, N>` (Asynchronous)
+A buffered version of the point-to-point channel that decouples the timing of the sender and receiver.
+* **Usage:** Ideal for "Pipeline" topologies where execution times vary (e.g., SD Card I/O vs. NPU Inference).
+* **Behavior:**
+    * **Sender:** Only blocks if the buffer is full.
+    * **Receiver:** Only blocks if the buffer is empty.
+* **Declaration:**
+```C++
+// Static allocation of a channel with a 16-slot buffer
+static BufferedOne2OneChannel<work_packet_t, 16> c1;
+```
 
 ### `Chanin<T>` and `Chanout<T>`
 These represent the input and output ports of a channel. Processes should store these as members to interact with the network.
