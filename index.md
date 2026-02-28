@@ -16,6 +16,13 @@ We leverage the power of process algebra to model system behavior:
 
 ---
 
+## Documentation
+For a detailed technical breakdown of the library primitives, including Channels, Processes, and External Choice, please see our:
+
+👉 **[CSP4CMSIS API Reference](./api)**
+
+--- 
+
 ## Technical Demos & Repositories
 
 Explore our implementation across the ARM ecosystem:
