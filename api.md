@@ -45,6 +45,7 @@ The core synchronization primitive for point-to-point communication with zero in
 * **Aliases**:
     * **`Channel<T>`**: An alias to model a standart CSP channel.
     * **`Any2OneChannel<T, P>`**: An alias used to semantically indicate a shared input port, though the underlying implementation remains a point-to-point rendezvous.
+    * * **`One2OneChannel<T, Policy>`:** Legacy for API 1.0 compatibility.  
 
 * **Declaration**:
 ```cpp
@@ -65,8 +66,9 @@ A buffered version of the point-to-point channel that decouples the timing of th
 * **Behavior:**
     * **`Block` (Default):** Sender blocks only if the buffer is $N$ items full.
     * **`KeepNewest` / `KeepOldest`:** Sender never blocks. If the buffer is full, the policy dictates which item is dropped to maintain the $N$ capacity.
-* **Aliases**:
-    * **`BufferedChannel<T, N>`**: An alias to model a standart CSP channel.
+* **Aliases**: 
+    * **`BufferedChannel<T, N>`:** An alias to model a standart CSP channel.
+    * **`BufferedOne2OneChannel<T, N, Policy>`:** Legacy for API 1.0 compatibility.  
 
 * **Declaration:**
 ```C++
