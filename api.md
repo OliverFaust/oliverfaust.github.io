@@ -80,7 +80,7 @@ static BufferedChannel<Message, 16> sync_b_chan;
 
 ### `Chanin<T>` and `Chanout<T>`
 These represent the input and output ports of a channel. Processes should store these as members to interact with the network.
-*Read (Synchronous): Use the >> operator. This blocks the calling process until data is available.
+* Read (Synchronous): Use the `>>` operator. This blocks the calling process until data is available.
 ```cpp
 in >> msg;
 ```
