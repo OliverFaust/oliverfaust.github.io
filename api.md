@@ -45,7 +45,7 @@ The core synchronization primitive for point-to-point communication with zero in
 * **Aliases**:
     * **`Channel<T>`**: An alias to model a standart CSP channel.
     * **`Any2OneChannel<T, P>`**: An alias used to semantically indicate a shared input port, though the underlying implementation remains a point-to-point rendezvous.
-    * * **`One2OneChannel<T, Policy>`:** Legacy for API 1.0 compatibility.  
+    * **`One2OneChannel<T, Policy>`:** Legacy for API 1.0 compatibility.  
 
 * **Declaration**:
 ```cpp
