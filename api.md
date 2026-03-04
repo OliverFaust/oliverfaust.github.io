@@ -72,7 +72,7 @@ A buffered version of the point-to-point channel that decouples the timing of th
     * **`BufferedOne2OneChannel<T, N, Policy>`:** Legacy for API 1.0 compatibility.  
 
 * **Declaration:**
-```C++
+```cpp
 // Static allocation of a channel with a 16-slot "Lossy" buffer
 static SamplingBufferedChannel<work_packet_t, 16, BufferPolicy::KeepNewest> keepnewest_b_chan;
 static SamplingBufferedChannel<work_packet_t, 16, BufferPolicy::KeepOldest> keepoldest_b_chan;
@@ -121,7 +121,7 @@ This function represents the CSP Parallel operator ($\parallel$). It groups proc
 The entry point for the CSP engine.
 * **Execution Mode:** `ExecutionMode::StaticNetwork` is used for high-integrity systems where tasks are launched once at startup and never deleted.
 * **Example:**
-```C++
+```cpp
 void MainApp_Task(void* params) {
     static MyProcess p1(chan.writer());
     static MyOtherProcess p2(chan.reader());
