@@ -72,6 +72,7 @@ A buffered version of the point-to-point channel that decouples the timing of th
     * **`BufferedOne2OneChannel<T, N, Policy>`:** Legacy for API 1.0 compatibility.  
 
 * **Declaration:**
+
 ```cpp
 // Static allocation of a channel with a 16-slot "Lossy" buffer
 static SamplingBufferedChannel<work_packet_t, 16, BufferPolicy::KeepNewest> keepnewest_b_chan;
