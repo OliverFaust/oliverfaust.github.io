@@ -65,8 +65,8 @@ static Any2OneChannel<Message> shared_input;
 A buffered version of the point-to-point channel that decouples the timing of the sender and receiver.
 * **Usage:** Ideal for "Pipeline" topologies where execution times vary (e.g., SD Card I/O vs. NPU Inference).
 * **Behavior:**
-    * **`Block` (Default):** Sender blocks only if the buffer is $N$ items full.
-    * **`KeepNewest` / `KeepOldest`:** Sender never blocks. If the buffer is full, the policy dictates which item is dropped to maintain the $N$ capacity.
+    * **`Block` (Default):** Sender blocks only if the buffer is N items full.
+    * **`KeepNewest` / `KeepOldest`:** Sender never blocks. If the buffer is full, the policy dictates which item is dropped to maintain the N capacity.
 * **Aliases**: 
     * **`BufferedChannel<T, N>`:** An alias to model a standart CSP channel.
     * **`BufferedOne2OneChannel<T, N, Policy>`:** Legacy for API 1.0 compatibility.  
@@ -138,7 +138,7 @@ void MainApp_Task(void* params) {
 
 ## 5. External Choice (Alternative / ALT)
 
-The `Alternative` class implements the CSP External Choice operator ($\square$). it allows a process to wait on multiple input channels simultaneously, proceeding as soon as any one of them is ready.
+The `Alternative` class implements the CSP External Choice operator. it allows a process to wait on multiple input channels simultaneously, proceeding as soon as any one of them is ready.
 
 ### `Alternative`
 The `Alternative` object is typically constructed on the process stack. It uses a "Resident-Guard" pattern that is entirely heap-free.
