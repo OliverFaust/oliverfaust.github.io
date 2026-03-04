@@ -48,6 +48,7 @@ The core synchronization primitive for point-to-point communication with zero in
     * **`One2OneChannel<T, Policy>`:** Legacy for API 1.0 compatibility.  
 
 * **Declaration**:
+
 ```cpp
 // Sampling channels (Non-blocking, explicit policy)
 static SamplingChannel<Message, BufferPolicy::KeepNewest> keepnewest_chan;
