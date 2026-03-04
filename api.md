@@ -138,7 +138,7 @@ void MainApp_Task(void* params) {
 
 ## 5. External Choice (Alternative / ALT)
 
-The `Alternative` class implements the CSP External Choice operator. it allows a process to wait on multiple input channels simultaneously, proceeding as soon as any one of them is ready.
+The `Alternative` class implements the CSP External Choice operator (☐). it allows a process to wait on multiple input channels simultaneously, proceeding as soon as any one of them is ready.
 
 ### `Alternative`
 The `Alternative` object is typically constructed on the process stack. It uses a "Resident-Guard" pattern that is entirely heap-free.
