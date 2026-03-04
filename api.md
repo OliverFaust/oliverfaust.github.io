@@ -182,7 +182,7 @@ void Receiver::run() {
 1. **Static Channels:** Channels should be declared as static to reside in the `.data` or `.bss` segments.
 2. **Stack-Based ALT:** The Alternative object and its guards reside on the task stack, ensuring deterministic memory usage.
 3. **No New/Delete:** The library does not perform hidden allocations during communication or selection.
-4. **Deterministic Latency:** $O(1)$ time complexity for all channel operations, including KeepNewest overwrites.
+4. **Deterministic Latency:** O(1) time complexity for all channel operations, including KeepNewest overwrites.
 5. **Thread Safety:** Atomic pointer updates ensure the receiver never reads partially overwritten data during a "Lossy" event.
 
 ### Deterministic Synchronization
