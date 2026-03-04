@@ -116,7 +116,7 @@ To run the processes, they must be composed into a network.
 
 `InParallel(P1, P2, ...)`
 
-This function represents the CSP Parallel operator (||). It groups process instances together for simultaneous execution.
+This function represents the CSP Parallel operator (`||`). It groups process instances together for simultaneous execution.
 
 `Run(...)`
 
