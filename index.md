@@ -1,6 +1,6 @@
 # CSP4CMSIS: Bridging Formal Methods and AI at the Edge
 
-Welcome to the official portal for the **CSP4CMSIS** ecosystem. Based in Cambridge, this project focuses on the implementation of **Communicating Sequential Processes (CSP)** for ARM-based embedded systems, providing a mathematically sound foundation for high-integrity AI deployment.
+Welcome to the official portal for the **CSP4CMSIS** ecosystem. Based in Cambridge, this project focuses on the implementation of [**Communicating Sequential Processes (CSP)**](https://en.wikipedia.org/wiki/Communicating_sequential_processes) for ARM-based embedded systems, providing a mathematically sound foundation for high-integrity AI deployment.
 
 ## The Vision: Formal-AI-Edge (F.A.E.)
 
