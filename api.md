@@ -102,7 +102,8 @@ This method allows an ISR to send a message or trigger to a waiting process.
 * **Context:** Must be called from within a HAL Callback or Exception Handler.
 * **Non-Blocking:** This method never waits.
 * **Policy Impact:** With `KeepNewest`, it will always succeed by overwriting old data if necessary. With `Block`, it returns `false` if the buffer is full.
-```C++
+
+```cpp
 extern "C" void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     if (GPIO_Pin == MY_PIN) {
         my_chan.writer().putFromISR(trigger_t{});
