@@ -2,8 +2,14 @@ title: CSP4CMSIS
 description: >
   Formal Process Networks for Safe Embedded AI on ARM Silicon.
   <br><br>
-  <a href="./api">View API Reference</a> | 
-  <a href="./CSP4CMSIS_cheatcheet.pdf">Download Cheatsheet</a>
+  <a href="/CSP4CMSIS/api">View API Reference</a> | 
+  <a href="/CSP4CMSIS/CSP4CMSIS_cheatcheet.pdf">Download Cheatsheet</a>
+
+# --- NEW SETTINGS FOR SUBDIRECTORY ---
+url: "https://oliverfaust.github.io"
+baseurl: "/CSP4CMSIS"
+# -------------------------------------
+
 theme: jekyll-theme-minimal
 show_downloads: true
 mathjs: true
