@@ -16,6 +16,12 @@ We leverage the power of process algebra to model system behavior:
 
 ---
 
+## Companion Book
+ 
+Want the full theory behind this library? **[Static Process Networks in Embedded Systems: A Rigorous Approach to Concurrency](https://oliverfaust.github.io/Static_Process_Networks)** walks through every concept above — from a single process to a full NPU-accelerated vision pipeline — with worked examples and open-source code for each chapter.
+ 
+---
+
 ## Documentation
 Access the core technical resources for designing safe process networks:
 
