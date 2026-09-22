@@ -40,8 +40,8 @@ Chapter 9, **Agency**, is a theoretical closing chapter with no accompanying rep
 
 ## Documentation
 
-* 👉 **[CSP4CMSIS API Reference](./api)** — library primitives used throughout the book.
-* 📄 **[Download Quick Reference Cheatsheet (PDF)](./CSP4CMSIS_cheatcheet.pdf)** — CSP-to-C++ mappings at a glance.
+* 👉 **[CSP4CMSIS API Reference](https://oliverfaust.github.io/CSP4CMSIS/api)** — library primitives used throughout the book.
+* 📄 **[Download Quick Reference Cheatsheet (PDF)](https://oliverfaust.github.io/CSP4CMSIS/CSP4CMSIS_cheatcheet.pdf)** — CSP-to-C++ mappings at a glance.
 
 ---
 
