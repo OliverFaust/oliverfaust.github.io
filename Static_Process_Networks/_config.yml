@@ -1,0 +1,19 @@
+title: Static Process Networks in Embedded Systems
+description: >
+  A Rigorous Approach to Concurrency.
+  <br><br>
+  <a href="/static-process-networks/#chapters">Chapters &amp; Code</a> |
+  <a href="https://github.com/OliverFaust/CSP4CMSIS">CSP4CMSIS Library</a>
+
+# --- SETTINGS FOR SUBDIRECTORY (GitHub project page) ---
+# Replace with your actual GitHub username / org and repo name.
+url: "https://oliverfaust.github.io"
+baseurl: "/static-process-networks"
+# ---------------------------------------------------------
+
+theme: jekyll-theme-minimal
+show_downloads: true
+mathjs: true
+
+# This ensures the compiler uses the SCSS overrides
+remote_theme: pages-themes/minimal@v0.2.0
