@@ -40,7 +40,7 @@ Explore our implementation across the ARM ecosystem:
 | **Nucleo-G474RE** | Intermediate | [View Repo](https://github.com/OliverFaust/CSP4CMSIS_for_NUCLEO-G474RE) |
 | **Cortex M55 / Ethos NPU** | Flagship / AI | [View Repo](https://github.com/OliverFaust/HimaxWE2-CSP4CMSIS) |
 | **DISCO-L475VG-IOT01A (B-L475E-IOT01A)** | Intermediate | [View Repo](https://github.com/OliverFaust/CSP4CMSIS-B-L475E-IOT01A/tree/main) |
-| **csp4cmsis-alif-dk-e8** | Advanced | [View Repo](https://github.com/OliverFaust/csp4cmsis-alif-dk-e8) |
+| **Alif-DK-E8-CSP4CMSIS** | Advanced | [View Repo](https://github.com/OliverFaust/Alif-DK-E8-CSP4CMSIS) |
 
 ---
 
