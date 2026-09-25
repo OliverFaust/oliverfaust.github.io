@@ -30,7 +30,7 @@ Chapters 3–8 build the core model on any Arm Cortex-M board (examples use an *
 
 | Chapter | Focus | Hardware | Repository |
 |:---|:---|:---|:---|
-| **8. Neuropathways** | A Capture → Inference → Output vision pipeline across heterogeneous CPU/NPU hardware | Himax WE2 (Cortex-M55 + Ethos-U55) | [View Repo](https://github.com/OliverFaust/CSP4CMSIS/tree/main/EPII_CM55M_APP_S/app/scenario_app/csp4cmsis_allon_sensor_tflm) |
+| **8. Neuropathways** | A Capture → Inference → Output vision pipeline across heterogeneous CPU/NPU hardware | Himax WE2 (Cortex-M55 + Ethos-U55) | [View Repo](https://github.com/OliverFaust/HimaxWE2-CSP4CMSIS/tree/main/EPII_CM55M_APP_S/app/scenario_app/csp4cmsis_allon_sensor_tflm) |
 
 ### Theory: Agency
 
