@@ -14,23 +14,23 @@ Every chapter follows the same shape: a minimal, complete example; a CSP specifi
 
 ## Chapters & Code {#chapters}
 
-Chapters 3–8 build the core model on any Arm Cortex-M board (examples use an **STM32 NUCLEO-G474RE**). Chapter 9 extends it to NPU-accelerated hardware.
+Chapters 4–8 build the core model on any Arm Cortex-M board (examples use an **STM32 NUCLEO-G474RE**). Chapter 9 extends it to NPU-accelerated hardware.
 
 ### Part I — Core Concepts
 
 | Chapter | Focus | Hardware | Repository |
 |:---|:---|:---|:---|
-| **3. The Process** | A single `CSProcess` mapped to a FreeRTOS task | NUCLEO-G474RE | [View Repo](https://github.com/OliverFaust/nucleo-g474re_The_Process) |
-| **4. Processes and Channels** | Rendezvous communication between processes | NUCLEO-G474RE | [View Repo](https://github.com/OliverFaust/nucleo-g474re_Processes_and_Channels) |
-| **5. Interrupts** | ISR-safe injection of external events via `putFromISR` | NUCLEO-G474RE | [View Repo](https://github.com/OliverFaust/nucleo-g474re_Interrupts) |
-| **6. Sensor Data Processing Network** | A multi-stage, high-frequency acquisition pipeline | NUCLEO-G474RE + L3G4200D gyroscope | [View Repo](https://github.com/OliverFaust/nucleo-g474re_Sensor_Data_Processing_Network) |
-| **7. Alternation** | External choice across multiple senders via `Alternative` | NUCLEO-G474RE | [View Repo](https://github.com/OliverFaust/nucleo-g474re_Alternation) |
+| **4. The Process** | A single `CSProcess` mapped to a FreeRTOS task | NUCLEO-G474RE | [View Repo](https://github.com/OliverFaust/nucleo-g474re_The_Process) |
+| **5. Processes and Channels** | Rendezvous communication between processes | NUCLEO-G474RE | [View Repo](https://github.com/OliverFaust/nucleo-g474re_Processes_and_Channels) |
+| **6. Interrupts** | ISR-safe injection of external events via `putFromISR` | NUCLEO-G474RE | [View Repo](https://github.com/OliverFaust/nucleo-g474re_Interrupts) |
+| **7. Sensor Data Processing Network** | A multi-stage, high-frequency acquisition pipeline | NUCLEO-G474RE + L3G4200D gyroscope | [View Repo](https://github.com/OliverFaust/nucleo-g474re_Sensor_Data_Processing_Network) |
+| **8. Alternation** | External choice across multiple senders via `Alternative` | NUCLEO-G474RE | [View Repo](https://github.com/OliverFaust/nucleo-g474re_Alternation) |
 
 ### Part II — Advanced Topics
 
 | Chapter | Focus | Hardware | Repository |
 |:---|:---|:---|:---|
-| **8. Neuropathways** | A Capture → Inference → Output vision pipeline across heterogeneous CPU/NPU hardware | Himax WE2 (Cortex-M55 + Ethos-U55) | [View Repo](https://github.com/OliverFaust/HimaxWE2-CSP4CMSIS/tree/main/EPII_CM55M_APP_S/app/scenario_app/csp4cmsis_allon_sensor_tflm) |
+| **9. Neuropathways** | A Capture → Inference → Output vision pipeline across heterogeneous CPU/NPU hardware | Himax WE2 (Cortex-M55 + Ethos-U55) | [View Repo](https://github.com/OliverFaust/HimaxWE2-CSP4CMSIS/tree/main/EPII_CM55M_APP_S/app/scenario_app/csp4cmsis_allon_sensor_tflm) |
 
 ### Theory: Agency
 
