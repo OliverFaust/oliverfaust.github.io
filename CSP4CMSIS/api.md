@@ -308,18 +308,23 @@ void Receiver::run() {
 
 ## 6. Memory and Safety Guarantees
 
-### Zero-Heap Execution *(channel/ALT operation only — see note below)*
-`csp4cmsis` is designed for safety-critical ARM environments where dynamic memory allocation (the "Heap") is prohibited during steady-state operation.
+### Heap-Free Operation (v2.0.0)
+`csp4cmsis` is designed for safety-critical ARM environments where dynamic memory allocation (the "Heap") is prohibited.
 
-1. **Static Channels:** Channels should be declared as static to reside in the `.data` or `.bss` segments.
-2. **Stack-Based ALT:** The Alternative object and its guards reside on the task stack, ensuring deterministic memory usage.
-3. **No New/Delete during communication or selection:** Channel operations, guard enable/disable/activate, and ALT selection perform no hidden allocations.
-4. **Deterministic Latency:** O(1) time complexity for all channel operations, including KeepNewest overwrites.
-5. **Thread Safety:** Atomic pointer updates ensure the receiver never reads partially overwritten data during a "Lossy" event.
+1. **The library never allocates.** No `malloc`, `operator new` or RTOS heap call anywhere in the library, neither during network construction nor during communication or selection.
+2. **Static RTOS objects:** with `CSP4CMSIS_STATIC_ALLOCATION` defined, every RTOS object the library creates (process threads, channel and barrier semaphores, timeout timers) has a statically allocated control block. Process stacks are always static (`CSProcessStatic<N>`).
+3. **Static Channels:** channels should be declared static, so they reside in `.data`/`.bss`.
+4. **Stack-Based ALT:** the `Alternative` object and its guards reside on the task stack; memory use is deterministic.
+5. **Deterministic Latency:** O(1) time for all channel operations, including KeepNewest overwrites.
+6. **Thread Safety:** buffered-channel updates (including a KeepNewest overwrite from an ISR) happen inside one short critical section, so a reader never sees a partially written element.
 
-> **Note:** `InParallel(...)` process spawning itself does perform one heap allocation per process (a small internal task-context object) at network-startup time, and per-process FreeRTOS task/stack allocation is naturally heap-derived unless your `heap_*.c` port and `xTaskCreateStatic` are used instead. This has always been true and is unrelated to the v1.2 or v1.3 changes. The "zero-heap" guarantee above refers specifically to *steady-state* channel and ALT operation after the network is running, not to network construction.
+> **Verified:** the CSP4CMSIS regression suite passes on FreeRTOS and Keil RTX5 with RTOS dynamic allocation disabled (Corstone-300 FVP, Arm Compiler 6 and GCC).
 >
-> The stack-introspection accessors added in v1.3 (Section 1) are pure reads of state FreeRTOS already maintains — they perform no allocation and add no runtime cost beyond the FreeRTOS call they wrap.
+> **What a completely heap-free *system* additionally needs:** RTOS configuration (FreeRTOS: `configSUPPORT_DYNAMIC_ALLOCATION 0` plus two workarounds for the CMSIS-FreeRTOS adapter; RTX5: `OS_DYNAMIC_MEM_SIZE 0` and, with the Arm C library, a static mutex pool), and care with the C library's own heap (`printf` may allocate). See `Documentation/CSP4CMSIS_Configuration.md`, section 6, in the CSP4CMSIS repository.
+>
+> **Earlier versions:** before v2.0.0, channel mutexes and semaphores, `Barrier` and timeout guards were allocated from the RTOS heap, so "zero-heap" then applied only to steady-state channel and ALT operation.
+>
+> The stack-introspection accessors added in v1.3 (Section 1) are pure reads of state the RTOS already maintains; they perform no allocation and add no runtime cost beyond the RTOS call they wrap.
 
 ### Deterministic Synchronization
 Unlike standard RTOS queues, csp4cmsis channels default to *Rendezvous* (capacity 0). This means:

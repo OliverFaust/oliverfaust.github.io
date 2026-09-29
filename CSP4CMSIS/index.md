@@ -6,7 +6,7 @@ Welcome to the official portal for the **CSP4CMSIS** ecosystem. Based in Cambrid
 
 In the era of "AI at the Edge," the industry faces a **Safety Wall**. Traditional "Super-loop" architectures cannot guarantee the deterministic behavior required for safety-critical systems when integrated with non-deterministic AI inference.
 
-**CSP4CMSIS** solves this by providing a zero-heap, static-memory mapping of CSP primitives directly onto **ARM CMSIS-RTOS** and **FreeRTOS**.
+**CSP4CMSIS** solves this by providing a heap-free, static-memory mapping of CSP primitives directly onto **ARM CMSIS-RTOS2** (verified on FreeRTOS and Keil RTX5): the library itself never allocates, and with `CSP4CMSIS_STATIC_ALLOCATION` every RTOS object it creates is static.
 
 ### Core Formalisms
 We leverage the power of process algebra to model system behavior:
