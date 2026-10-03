@@ -308,21 +308,21 @@ void Receiver::run() {
 
 ## 6. Memory and Safety Guarantees
 
-### Heap-Free Operation (v2.0.0)
+### Heap-Free Operation (v2.0.1)
 `csp4cmsis` is designed for safety-critical ARM environments where dynamic memory allocation (the "Heap") is prohibited.
 
 1. **The library never allocates.** No `malloc`, `operator new` or RTOS heap call anywhere in the library, neither during network construction nor during communication or selection.
-2. **Static RTOS objects:** with `CSP4CMSIS_STATIC_ALLOCATION` defined, every RTOS object the library creates (process threads, channel and barrier semaphores, timeout timers) has a statically allocated control block. Process stacks are always static (`CSProcessStatic<N>`).
+2. **Static RTOS objects:** with `CSP4CMSIS_STATIC_ALLOCATION` defined, every RTOS object the library creates (process threads, channel and barrier semaphores) has a statically allocated control block. Timeout guards (`RelTimeoutGuard`) create no RTOS object at all (v2.0.1). Process stacks are always static (`CSProcessStatic<N>`).
 3. **Static Channels:** channels should be declared static, so they reside in `.data`/`.bss`.
 4. **Stack-Based ALT:** the `Alternative` object and its guards reside on the task stack; memory use is deterministic.
 5. **Deterministic Latency:** O(1) time for all channel operations, including KeepNewest overwrites.
 6. **Thread Safety:** buffered-channel updates (including a KeepNewest overwrite from an ISR) happen inside one short critical section, so a reader never sees a partially written element.
 
-> **Verified:** the CSP4CMSIS regression suite passes on FreeRTOS and Keil RTX5 with RTOS dynamic allocation disabled (Corstone-300 FVP, Arm Compiler 6 and GCC).
+> **Verified:** the CSP4CMSIS regression suite passes on FreeRTOS and Keil RTX5 with RTOS dynamic allocation disabled (Corstone-300 FVP, Arm Compiler 6 and GCC), and with v2.0.1 also on ST's STM32Cube CMSIS-RTOS2 wrapper (MPS2 Cortex-M4 FVP and NUCLEO-G474RE).
 >
 > **What a completely heap-free *system* additionally needs:** RTOS configuration (FreeRTOS: `configSUPPORT_DYNAMIC_ALLOCATION 0` plus two workarounds for the CMSIS-FreeRTOS adapter; RTX5: `OS_DYNAMIC_MEM_SIZE 0` and, with the Arm C library, a static mutex pool), and care with the C library's own heap (`printf` may allocate). See `Documentation/CSP4CMSIS_Configuration.md`, section 6, in the CSP4CMSIS repository.
 >
-> **Earlier versions:** before v2.0.0, channel mutexes and semaphores, `Barrier` and timeout guards were allocated from the RTOS heap, so "zero-heap" then applied only to steady-state channel and ALT operation.
+> **Earlier versions:** before v2.0.0, channel mutexes and semaphores, `Barrier` and timeout guards were allocated from the RTOS heap, so "zero-heap" then applied only to steady-state channel and ALT operation. In v2.0.0 a timeout guard was an RTOS timer with a static control block; on ST's wrapper it still took 16 bytes of RTOS heap (see the v2.0.0 known issues).
 >
 > The stack-introspection accessors added in v1.3 (Section 1) are pure reads of state the RTOS already maintains; they perform no allocation and add no runtime cost beyond the RTOS call they wrap.
 
