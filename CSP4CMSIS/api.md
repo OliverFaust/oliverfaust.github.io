@@ -1,404 +1,687 @@
-# CSP4CMSIS API Reference (v1.3)
+# CSP4CMSIS API Reference (v2.0.1)
 
-This document provides a technical summary of the core primitives used in **CSP4CMSIS**. Version 1.3 adds **process-level stack usage introspection** and a **network-wide reporting helper** on `ParallelHelper`, and **removes the single-process `Run(CSProcess&, priority)` overload** in favor of `Run(InParallel(process), mode)`. All v1.2 functionality — Buffer Policies, channels, ALT, ISR handling, per-process stack/priority declarations — is unchanged except where noted; this document folds in v1.2's content and adds the new material in Sections 1 and 4.
+CSP4CMSIS is a C++17 library of CSP processes, channels and alternation on top of any CMSIS-RTOS2
+kernel. This page documents the API of **v2.0.1** (tag
+[`v2.0.1`](https://github.com/OliverFaust/CSP4CMSIS/tree/v2.0.1)). Everything is in namespace `csp`
+and comes with one include:
 
-> **Migrating from v1.2?** Read [Section 8 — What Changed in v1.3](#8-what-changed-in-v13) first. Unlike the v1.2 migration, **this one is not fully source-compatible**: any code calling the single-process `Run(CSProcess&, priority)` overload will no longer compile. The fix is small and mechanical — see the migration checklist in Section 8.
->
-> **Migrating from v1.1?** Read [Section 7 — What Changed in v1.2](#7-what-changed-in-v12) first, then Section 8.
+```cpp
+#include "csp/csp4cmsis.h"
+
+using namespace csp;
+```
+
+The pre-2.0 API (1.x, up to v1.3) is archived on a [separate page](./api-1.x).
+
+Every code example on this page is compiled against v2.0.1 by
+[`tests/doc_examples/`](https://github.com/OliverFaust/CSP4CMSIS/tree/main/tests/doc_examples) in the
+CSP4CMSIS repository.
 
 ---
 
-## 1. Process Management
+## 1. Getting the library
 
-### CSProcess
-The fundamental unit of execution. Every task in your network must inherit from this class.
+### 1a. STM32CubeMX / STM32CubeIDE, without packs
 
-* **Usage**: Inherit from `CSProcess` and implement the `run()` method.
-* **Lifecycle**: The `run()` method contains the process logic. In `StaticNetwork` mode, these are mapped to persistent RTOS tasks.
+This is how the book's examples use the library. Step-by-step, tested guide:
+[`Documentation/CSP4CMSIS_STM32CubeIDE.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v2.0.1/Documentation/CSP4CMSIS_STM32CubeIDE.md).
+
+- **CubeMX:** Middleware **FREERTOS**, **Interface: CMSIS_V2** (ST's CMSIS-RTOS2 wrapper). Static
+  allocation is enabled with that interface (Memory Allocation: Dynamic / Static).
+- **Source:** take the folder `csp4cmsis/` and the file `LICENSE` from either the v2.0.1 release's
+  **Source code (zip)** on GitHub ([release page](https://github.com/OliverFaust/CSP4CMSIS/releases/tag/v2.0.1))
+  or the unpacked `OliverFaust.CSP4CMSIS.2.0.1.pack` (a zip archive; same release page). Copy them to
+  `<project>/lib/csp4cmsis/`, outside `Core/` (CubeMX regenerates `Core/`). Add `lib/csp4cmsis/src` as a
+  source folder.
+- **Include path:** `lib/csp4cmsis/inc` only, never `lib/csp4cmsis/inc/csp` (its `time.h` would hide the
+  C library's `<time.h>`).
+- **G++ language standard:** GNU++17 (CubeIDE's default GNU++14 does not compile the library).
+- **Four G++ defines:**
+  `CSP4CMSIS_RTOS2_BACKEND_FREERTOS`, `CSP4CMSIS_MAX_SYSCALL_INTERRUPT_PRIORITY=5`,
+  `CSP4CMSIS_STATIC_ALLOCATION`, `CSP4CMSIS_DEVICE_HEADER="stm32g4xx.h"` (section 2).
+
+### 1b. CMSIS pack
+
+```bash
+cpackget add -a https://github.com/OliverFaust/CSP4CMSIS/releases/download/v2.0.1/OliverFaust.CSP4CMSIS.2.0.1.pack
+```
+
+- `-a` accepts the pack's MIT licence non-interactively; without it, `cpackget` asks, and in a script
+  or CI job it installs nothing.
+- Install from the versioned `.pack` URL, which pins the exact version. To update, change the version
+  in the URL. To find out whether there is a newer release, run `cpackget update-index` (it reports
+  "can be upgraded from … to …").
+- Component, in the `.cproject.yml`:
+
+```yaml
+components:
+  - component: OliverFaust::CSP4CMSIS:Core
+```
+
+The component requires `CMSIS:RTOS2` (any implementation) and `CMSIS:CORE`. Pack builds get the
+device header from `RTE_Components.h`, so `CSP4CMSIS_DEVICE_HEADER` is not needed.
+
+---
+
+## 2. Configuration
+
+CSP4CMSIS needs a **CMSIS-RTOS2** implementation (`cmsis_os2.h`). Tested: Arm's CMSIS-FreeRTOS
+adapter, Keil RTX5, and ST's STM32Cube wrapper (FreeRTOS, CubeMX "CMSIS_V2").
+
+| Define | Required | Meaning |
+|---|---|---|
+| `CSP4CMSIS_MAX_SYSCALL_INTERRUPT_PRIORITY=<n>` | always (`#error` otherwise) | The NVIC priority, **unshifted**, at and below which the library's critical sections mask interrupts (BASEPRI). Use your RTOS's threshold, e.g. FreeRTOS's `configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY`. See section 5 for what it means for your ISRs. |
+| `CSP4CMSIS_DEVICE_HEADER="<header>"` | builds without packs (`#error` if there is neither this nor a pack's `RTE_Components.h`) | The device header, for CMSIS-Core (`__NVIC_PRIO_BITS`, BASEPRI access), e.g. `"stm32g4xx.h"`. |
+| `CSP4CMSIS_STATIC_ALLOCATION` | optional; needed for a heap-free system | Every RTOS object the library creates gets a statically allocated control block. |
+| `CSP4CMSIS_RTOS2_BACKEND_FREERTOS` or `CSP4CMSIS_RTOS2_BACKEND_RTX5` | with `CSP4CMSIS_STATIC_ALLOCATION` (`#error` otherwise) | Selects the backend's control-block types. Exactly one. Any FreeRTOS-based CMSIS-RTOS2 layer, including ST's, is `_FREERTOS`. |
+| `CSP4CMSIS_ISR_MAX_ELEMENT_SIZE=<bytes>` | optional, default 64 | Largest element an ISR may write (section 5). |
+| `CSP_TYPICAL_STACK_WORDS=<words>` | optional, default 256 | A documented starting value for `CSProcessStatic<N>`; not used by the library itself. |
+
+How to choose each value for your board:
+[`Documentation/CSP4CMSIS_Configuration.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v2.0.1/Documentation/CSP4CMSIS_Configuration.md).
+
+---
+
+## 3. Processes
+
+### `CSProcessStatic<N>`
+
+A process is a class derived from `CSProcessStatic<N>` that implements `run()`:
+
+- **`N` is the stack size in words** (`uint32_t`, 4 bytes each): `CSProcessStatic<256>` has 1 KB of
+  stack. The stack (8-byte aligned) and, with `CSP4CMSIS_STATIC_ALLOCATION`, the thread control block
+  are members of the object.
+- **Process objects must have static storage duration** (namespace scope or function-local `static`):
+  the object's lifetime is the thread's storage.
+- **`void run()`** is the process body. When it returns, the process's thread ends.
+- **`const char* name() const`** (optional) names the thread; default `"csp_task"`.
+- **`osPriority_t taskPriority() const`** (optional) is the CMSIS-RTOS2 priority of this process. If it
+  is not overridden, the process runs at the priority passed to `Run()`.
 
 ```cpp
-class MyProcess : public CSProcess {
+#include "csp/csp4cmsis.h"
+#include <cstdio>
+
+using namespace csp;
+
+struct Reading {
+    uint32_t sequence;
+    int32_t  value;
+};
+
+class Sensor : public CSProcessStatic<256> {   // 256 words = 1 KB of stack
+    Chanout<Reading> out;
 public:
+    explicit Sensor(Chanout<Reading> w) : out(w) {}
+    const char* name() const override { return "Sensor"; }
     void run() override {
-        while(true) {
-            // Process Logic (Reading from channels, etc.)
+        for (uint32_t i = 0; ; ++i) {
+            out << Reading{i, static_cast<int32_t>(i) * 10};
+            SleepFor(100);                     // 100 ticks
         }
     }
 };
-```
 
-### Declaring Resource Requirements (Since v1.2)
-
-`CSProcess` exposes two overridable methods so a process can declare what it needs, independent of where it appears in an `InParallel(...)` argument list:
-
-```cpp
-virtual size_t stackWords() const;      // FreeRTOS task stack size, in words
-virtual UBaseType_t taskPriority() const; // FreeRTOS task priority
-```
-
-Both are optional. If you don't override them, the process falls back to the same default your v1.1 code already relied on — see [Section 7](#7-what-changed-in-v12) for exactly what those defaults are and why they're safe to leave alone.
-
-Override them when a specific process has real requirements — most commonly, a process with a deep call chain (e.g. a neural-network inference stage calling through an interpreter into vendor NPU drivers) or one that needs to run above or below the rest of the composition:
-
-```cpp
-class InferenceProcess : public CSProcess {
+class Logger : public CSProcessStatic<512> {
+    Chanin<Reading> in;
 public:
-    // This process needs more stack than the composition default,
-    // and should run one priority level above its peers.
-    size_t stackWords() const override { return 4 * 2048; }
-    UBaseType_t taskPriority() const override { return tskIDLE_PRIORITY + 3; }
-
-    void run() override { /* ... */ }
+    explicit Logger(Chanin<Reading> r) : in(r) {}
+    const char* name() const override { return "Logger"; }
+    osPriority_t taskPriority() const override { return osPriorityBelowNormal; }
+    void run() override {
+        Reading r;
+        while (true) {
+            in >> r;
+            printf("%lu: %ld\r\n", (unsigned long)r.sequence, (long)r.value);
+        }
+    }
 };
+
+static Channel<Reading> readings;
+static Sensor sensor(readings.writer());
+static Logger logger(readings.reader());
+
+void start_network(void) {
+    // Sensor runs at osPriorityLow (the composition priority), Logger at its own.
+    Run(InParallel(sensor, logger), ExecutionMode::StaticNetwork, osPriorityLow);
+}
 ```
 
-**Position in `InParallel(...)` no longer matters for stack or priority.** Every process — regardless of where it's listed — is spawned with exactly the stack and priority it declares (or the composition default, if it declares none). See Section 4 for how these interact with `Run(...)`'s own priority argument.
+### Starting processes: `InParallel`, `Run`, `ExecutionMode`
 
-### Stack Usage Introspection (New in v1.3)
+`InParallel(p1, p2, ...)` is the parallel composition; `Run()` starts it. Every process becomes its own
+CMSIS-RTOS2 thread (`osThreadNew()` with the process's static stack and control block); position in
+the argument list has no meaning.
 
-`CSProcess` exposes two read-only accessors for inspecting how much stack a process's task has actually used, built on FreeRTOS's `uxTaskGetStackHighWaterMark()`:
-
+<!-- synopsis: declarations from the v2.0.1 headers -->
 ```cpp
-UBaseType_t stackHighWaterMarkWords() const;
-UBaseType_t lastStackHighWaterMarkWords() const;
+template <typename... Processes>
+void Run(ParallelHelper<Processes...> helper,
+         osPriority_t priority = CSP_LEGACY_PARALLEL_PRIORITY);          // TerminatingNetwork
+
+template <typename... Processes>
+void Run(ParallelHelper<Processes...> helper, ExecutionMode mode,
+         osPriority_t priority = CSP_LEGACY_PARALLEL_PRIORITY);
+
+void Run(CSProcess& process, osPriority_t priority = CSP_DEFAULT_TASK_PRIORITY);
 ```
 
-* **`stackHighWaterMarkWords()`** — a *live* query against the process's running task. Valid from the moment the task starts (`Run(...)` has spawned it) until it exits; safe to call at any time in between, including concurrently with a `StaticNetwork` composition whose processes run forever — this is the intended use case, since such processes never reach a "finished" point to report at.
-* **`lastStackHighWaterMarkWords()`** — a snapshot taken automatically, immediately before a process's task exits (self-deletes). Unlike the live query, this remains safely readable indefinitely afterward, which matters for `TerminatingNetwork` compositions whose processes do return from `run()`. Processes that loop forever never populate this — use the live query for those instead.
-
-Both return the high-water mark in **words** (`StackType_t` units), not bytes — multiply by `sizeof(StackType_t)` for a byte count. This mirrors `uxTaskGetStackHighWaterMark()`'s own convention, and matches the units `stackWords()` (above) already uses when declaring a stack size, so a returned value can be compared directly against what you asked for.
-
-**Sentinel value.** Both accessors return `CSP_STACK_HWM_UNAVAILABLE` (`(UBaseType_t)-1`) rather than `0` when no real measurement is available — for example, before a task has started, or when `lastStackHighWaterMarkWords()`'s task hasn't exited yet. This is deliberately a *different* sentinel from `CSP_STACK_UNSPECIFIED` (used above for "no stack size declared"): a genuine high-water-mark reading of `0` words is a legitimate, if alarming, result — it means the task came within a hair of overflow — and must not be silently indistinguishable from "no data available."
-
-**Build requirement.** These accessors depend on `INCLUDE_uxTaskGetStackHighWaterMark` being set to `1` in your project's `FreeRTOSConfig.h`. If it isn't, both accessors compile fine but always return `CSP_STACK_HWM_UNAVAILABLE` — there is no build error, only silently unavailable data, so check this first if every process reports unavailable.
+- **`ExecutionMode::StaticNetwork`:** starts all threads and returns at once. For networks that run
+  for ever. Can be called from a thread, or from `main()` between `osKernelInitialize()` and
+  `osKernelStart()`.
+- **`ExecutionMode::TerminatingNetwork`** (and the overload without a mode): starts all threads and
+  blocks the calling thread until every process has returned from `run()`. Call it from a thread.
+- **`priority`:** the composition priority, for every process that does not override
+  `taskPriority()`. Default `CSP_LEGACY_PARALLEL_PRIORITY` = `osPriorityLow`.
+- **`Run(CSProcess&, priority)` is deprecated:** prefer `Run(InParallel(p), ExecutionMode::StaticNetwork,
+  priority)`. **Warning:** its default priority, `CSP_DEFAULT_TASK_PRIORITY`, is `osPriorityRealtime7`,
+  almost the highest there is.
+- If `osThreadNew()` fails, `Run()` prints `FATAL ERROR: Failed to create RTOS2 task for CSProcess …`
+  with `printf` and continues.
 
 ```cpp
-// Typical usage: a periodic health-check report on a StaticNetwork.
-void MainApp_Task(void* params) {
-    static Camera camera(/* ... */);
-    static Inference inference(/* ... */);
+#include "csp/csp4cmsis.h"
+#include <cstdio>
 
-    auto network = InParallel(camera, inference);
+using namespace csp;
+
+class Worker : public CSProcessStatic<CSP_TYPICAL_STACK_WORDS> {
+    int id;
+public:
+    explicit Worker(int i) : id(i) {}
+    void run() override { printf("worker %d done\r\n", id); }   // returning ends the thread
+};
+
+static Worker first(1), second(2);
+
+// Called from a thread: returns when both workers have returned from run().
+void run_workers(void) {
+    Run(InParallel(first, second), ExecutionMode::TerminatingNetwork, osPriorityNormal);
+}
+```
+
+### Stack introspection and `forEachProcess`
+
+- **`uint32_t stackHighWaterMarkWords() const`:** the smallest amount of free stack the process's
+  thread has had so far, **in words** (the unit of `N`). Returns `CSP_STACK_HWM_UNAVAILABLE` before the
+  process has been started. Call it only while the thread exists (not after `run()` has returned).
+- **`size_t stackWords() const`:** the stack size `N`.
+- **Requirement:** it uses `osThreadGetStackSpace()`. With FreeRTOS (Arm's adapter and ST's wrapper),
+  that function calls `uxTaskGetStackHighWaterMark()`, so `FreeRTOSConfig.h` needs
+  `INCLUDE_uxTaskGetStackHighWaterMark 1`; without it the build fails to link.
+- **`forEachProcess(fn)`:** `InParallel(...)` returns a `ParallelHelper`; keep it in a variable to call
+  `fn(CSProcess&)` for each process, in declaration order, at any time after `Run()`.
+
+```cpp
+#include "csp/csp4cmsis.h"
+#include <cstdio>
+
+using namespace csp;
+
+class Blinker : public CSProcessStatic<256> {
+public:
+    const char* name() const override { return "Blinker"; }
+    void run() override { while (true) { SleepFor(Milliseconds(500).to_ticks()); } }
+};
+
+class Heartbeat : public CSProcessStatic<256> {
+public:
+    const char* name() const override { return "Heartbeat"; }
+    void run() override { while (true) { SleepFor(Seconds(1).to_ticks()); } }
+};
+
+static Blinker blinker;
+static Heartbeat heartbeat;
+
+// Body of a monitoring thread (e.g. CubeMX's defaultTask).
+void monitor(void) {
+    auto network = InParallel(blinker, heartbeat);
     Run(network, ExecutionMode::StaticNetwork);
-
     while (true) {
-        vTaskDelay(pdMS_TO_TICKS(30000));
+        SleepFor(Seconds(5).to_ticks());
         network.forEachProcess([](CSProcess& p) {
-            UBaseType_t hwm = p.stackHighWaterMarkWords();
-            if (hwm != CSP_STACK_HWM_UNAVAILABLE) {
-                printf("%s: %u words free at worst\n", p.name(), hwm);
+            uint32_t free_words = p.stackHighWaterMarkWords();
+            if (free_words != CSP_STACK_HWM_UNAVAILABLE) {
+                printf("%s: %lu of %lu words never used\r\n", p.name(),
+                       (unsigned long)free_words, (unsigned long)p.stackWords());
             }
         });
     }
 }
 ```
 
-(`ParallelHelper::forEachProcess(...)`, used above, is documented in Section 4.)
+### Time: `SleepFor`, `Seconds`, `Milliseconds`
+
+- **`void SleepFor(uint32_t ticks_to_sleep)`** suspends the calling process for that many **RTOS
+  ticks** (`osDelay()`), not milliseconds.
+- **`csp::Time`** holds a tick count: `Time(ticks)`, `to_ticks()`. `Seconds(s)` and `Milliseconds(ms)`
+  convert with the kernel tick frequency (`osKernelGetTickFreq()`): `SleepFor(Milliseconds(250).to_ticks())`.
+- **They round down**, so a duration shorter than one tick becomes 0 ticks: `Milliseconds(5)` at a
+  100 Hz tick is `Time(0)`. A `RelTimeoutGuard` with it is ready at once, and `SleepFor(0)` does not
+  wait. Durations that are a whole number of ticks are exact.
 
 ---
 
-## 2. Channel Communication
+## 4. Channels
 
-Channels provide the synchronization "handshake" between processes. As of v1.1, the behavior of this handshake is governed by the `BufferPolicy`. Unchanged in v1.2 and v1.3.
+A channel object owns the communication; processes use its ends: `writer()` returns a `Chanout<T>`,
+`reader()` a `Chanin<T>`. **Each process keeps its own end object** (the end holds that process's ALT
+state): do not share one `Chanin`/`Chanout` object between processes.
 
-### Buffer Policies (`enum class BufferPolicy`)
-Every channel can be configured with a policy that determines behavior when a producer and consumer are out of sync.
+| Channel | Capacity | Policies | ISR writer |
+|---|---|---|---|
+| `Channel<T>` | 0 (rendezvous) | Block only | no |
+| `Any2OneChannel<T>` | 0 (rendezvous) | Block only | no |
+| `SignalChannel<>` | 0 (rendezvous, no data: `csp::Signal`) | Block only | no |
+| `BufferedChannel<T, SIZE>` | `SIZE` | Block | `isrWriter()` |
+| `SamplingBufferedChannel<T, SIZE, Policy>` | `SIZE` | Block, KeepNewest, KeepOldest | `isrWriter()` |
 
-| Policy | Behavior | Use Case |
-| :--- | :--- | :--- |
-| **Block** (Default) | Standard CSP. Sender blocks until receiver is ready. | Critical control signals, command/response. |
-| **KeepOldest** | Non-blocking. If the buffer is full, new data is discarded. | Error logging, capturing first-event triggers. |
-| **KeepNewest** | Non-blocking. If the buffer is full, the oldest data is overwritten. | Sensor streams, IMU data, "Freshness" priority. |
+`Channel<T>` is `SamplingChannel<T, BufferPolicy::Block>`; `BufferedChannel<T, SIZE>` is
+`SamplingBufferedChannel<T, SIZE, BufferPolicy::Block>`. (`One2OneChannel` and
+`BufferedOne2OneChannel` are deprecated 1.0 aliases of the same classes.)
 
-### `SamplingChannel<T, Policy>` (Rendezvous)
-The core synchronization primitive for point-to-point communication with zero internal capacity.
+### Rendezvous channels: `Channel`, `Any2OneChannel`, `SignalChannel`
 
-* **Behavior**:
-    * **`Block` (Default)**: Implements strict Synchronous Rendezvous. Both sender and receiver must be present to exchange data.
-    * **`KeepNewest` / `KeepOldest`**: The sender never blocks; data is captured only if a receiver is already waiting at the exact moment of the write. If no receiver is present, the data is discarded.
-* **Aliases**:
-    * **`Channel<T>`**: An alias to model a standard CSP channel.
-    * **`Any2OneChannel<T, P>`**: An alias used to semantically indicate a shared input port, though the underlying implementation remains a point-to-point rendezvous.
-    * **`One2OneChannel<T, Policy>`:** Legacy for API 1.0 compatibility.
+- A write completes only when a reader takes the value, and a read only when a writer offers one:
+  writer and reader synchronise, and the value is copied directly from the writer to the reader.
+- **Any number of processes may read or write** an end with plain (blocking) operations; they are
+  served one at a time. `Any2OneChannel<T>` names the common case of several writers and one reader;
+  it is the same rendezvous channel.
+- **`SignalChannel<>`** carries no data: `out << Signal{}`, `in >> s` with `Signal s;`.
+- **Block only:** `KeepNewest`/`KeepOldest` on a rendezvous or signal channel is a compile-time error
+  ("KeepNewest/KeepOldest need a buffer"). Use a buffered channel of capacity 1.
 
-* **Declaration**:
+### Buffered channels: `BufferedChannel`, `SamplingBufferedChannel`
 
-```cpp
-// Sampling channels (Non-blocking, explicit policy)
-static SamplingChannel<Message, BufferPolicy::KeepNewest> keepnewest_chan;
-static SamplingChannel<Message, BufferPolicy::KeepOldest> keepoldest_chan;
+- `SIZE` elements are stored inside the channel object (no RTOS queue, no heap); `SIZE` must be > 0.
+- A reader always takes the oldest element and blocks while the channel is empty.
+- What a write does when the channel is **full**, by `BufferPolicy`:
 
-// Standard blocking channel alias
-static Channel<Message> chan;
+| Policy | Write to a full channel |
+|---|---|
+| `BufferPolicy::Block` | The writer blocks until a reader has taken an element. |
+| `BufferPolicy::KeepNewest` | The oldest element is overwritten (one atomic step). The writer never blocks. |
+| `BufferPolicy::KeepOldest` | The new element is discarded. The writer never blocks. |
 
-// Semantic Any-to-One alias
-static Any2OneChannel<Message> shared_input;
-```
+### Element types
 
-### `SamplingBufferedChannel<T, N, Policy>` (Asynchronous)
-A buffered version of the point-to-point channel that decouples the timing of the sender and receiver.
-* **Usage:** Ideal for "Pipeline" topologies where execution times vary (e.g., SD Card I/O vs. NPU Inference).
-* **Behavior:**
-    * **`Block` (Default):** Sender blocks only if the buffer is N items full.
-    * **`KeepNewest` / `KeepOldest`:** Sender never blocks. If the buffer is full, the policy dictates which item is dropped to maintain the N capacity.
-* **Aliases**:
-    * **`BufferedChannel<T, N>`:** An alias to model a standard CSP channel.
-    * **`BufferedOne2OneChannel<T, N, Policy>`:** Legacy for API 1.0 compatibility.
+`T` must be **trivially copyable** (`static_assert`): elements are copied with `memcpy`. Use plain
+structs of scalars, arrays, enums or raw pointers; not `std::string` or classes with their own copy
+constructor.
 
-* **Declaration:**
-
-```cpp
-// Static allocation of a channel with a 16-slot "Lossy" buffer
-static SamplingBufferedChannel<work_packet_t, 16, BufferPolicy::KeepNewest> keepnewest_b_chan;
-static SamplingBufferedChannel<work_packet_t, 16, BufferPolicy::KeepOldest> keepoldest_b_chan;
-
-// Standard blocking channel alias
-static BufferedChannel<Message, 16> sync_b_chan;
-```
-
-### `Chanin<T>` and `Chanout<T>`
-These represent the input and output ports of a channel. Processes should store these as members to interact with the network.
-* Read (Synchronous): Use the `>>` operator. This blocks the calling process until data is available.
-```cpp
-in >> msg;
-```
-* Write (Synchronous): Use the `<<` operator. This blocks the calling process until a receiver is ready.
-```cpp
-out << msg;
-```
-
----
-
-## 3. Interrupt Handling
-The library supports safe communication from Interrupt Service Routines (ISRs) to Tasks. Unchanged in v1.2 and v1.3.
-
-`putFromISR(T value)`
-
-This method allows an ISR to send a message or trigger to a waiting process.
-* **Context:** Must be called from within a HAL Callback or Exception Handler.
-* **Non-Blocking:** This method never waits.
-* **Policy Impact:** With `KeepNewest`, it will always succeed by overwriting old data if necessary. With `Block`, it returns `false` if the buffer is full.
+### Declaring, writing, reading
 
 ```cpp
-extern "C" void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-    if (GPIO_Pin == MY_PIN) {
-        my_chan.writer().putFromISR(trigger_t{});
-        portYIELD_FROM_ISR(pdTRUE); // Force context switch to receiver
-    }
-}
-```
+#include "csp/csp4cmsis.h"
 
----
+using namespace csp;
 
-## 4. Network Orchestration
+struct Command { uint8_t opcode; uint16_t argument; };    // trivially copyable
+struct Sample  { uint32_t timestamp; float value; };
 
-To run the processes, they must be composed into a network.
+static Channel<Command>          commands;   // rendezvous
+static Any2OneChannel<Command>   requests;   // rendezvous, several writers
+static SignalChannel<>           ready;      // rendezvous without data
+static BufferedChannel<Sample, 8> samples;   // 8 slots, Block
+static SamplingBufferedChannel<Sample, 1, BufferPolicy::KeepNewest> latest;     // newest value
+static SamplingBufferedChannel<Sample, 4, BufferPolicy::KeepOldest> first_four; // first four values
 
-### `InParallel(P1, P2, ...)`
-
-This function represents the CSP Parallel operator (`||`). It groups process instances together for simultaneous execution.
-
-> **v1.2 change:** In v1.1, the process listed *first* received different treatment than the rest (it ran inline on the caller's own task/stack instead of being spawned). As of v1.2 this is no longer true: `InParallel(...)` treats every argument identically, regardless of position. List processes in whatever order best communicates your system's topology — see [Section 7](#7-what-changed-in-v12).
-
-### `ParallelHelper<Processes...>::forEachProcess(fn)` (New in v1.3)
-
-`InParallel(...)` returns a `ParallelHelper<Processes...>` — normally passed straight into `Run(...)`, but it can also be kept as a named object and reused afterward:
-
-```cpp
-template <typename Fn>
-void forEachProcess(Fn&& fn);
-```
-
-Applies `fn(process&)` to every process in the composition, in declaration order. `fn` receives each process by its own concrete reference (e.g. a `Camera&`, not sliced to `CSProcess&`), though for code that should treat every process uniformly, a lambda parameter typed `CSProcess&` works too — each concrete reference converts implicitly.
-
-Safe to call at any time after `Run(...)` has spawned the composition's processes, including while a `StaticNetwork`'s processes are still running — it only reads each process's own state (e.g. via `stackHighWaterMarkWords()`, Section 1) and never touches anything a process owns internally. This is the primary tool for building a network-wide report — a stack-usage dump across every process, for instance — out of a composition that has no other natural point to report at.
-
-```cpp
-auto network = InParallel(camera, inference, console);
-Run(network, ExecutionMode::StaticNetwork);
-// ... later, from any task, any number of times:
-network.forEachProcess([](CSProcess& p) { /* inspect p */ });
-```
-
-Keeping the `ParallelHelper` around like this (rather than passing an `InParallel(...)` temporary directly into `Run(...)`) costs nothing extra — `Run(...)` takes it by value, and the object itself is just a `std::tuple` of references.
-
-### `Run(...)`
-
-The entry point for the CSP engine.
-
-* **Execution Mode:** `ExecutionMode::StaticNetwork` is used for high-integrity systems where tasks are launched once at startup and never deleted. `ExecutionMode::TerminatingNetwork` spawns all processes and blocks the calling task until every one of them completes.
-* **Priority argument (Since v1.2):** Both `Run(...)` overloads for parallel compositions accept an optional trailing `priority` argument — the **composition-wide default** priority applied to any process that has not overridden `taskPriority()`. If omitted, it defaults to the same value v1.1 used internally, so existing call sites are unaffected.
-
-```cpp
-template <typename... Processes>
-void Run(ParallelHelper<Processes...> helper,
-         UBaseType_t priority = /* v1.1-compatible default */);
-
-template <typename... Processes>
-void Run(ParallelHelper<Processes...> helper, ExecutionMode mode,
-         UBaseType_t priority = /* v1.1-compatible default */);
-```
-
-A process's own `taskPriority()` override, when present, always takes precedence over the composition-wide `priority` argument for that specific process.
-
-* **Example:**
-```cpp
-void MainApp_Task(void* params) {
-    static MyProcess p1(chan.writer());
-    static MyOtherProcess p2(chan.reader());
-
-    Run(
-        InParallel(p1, p2),
-        ExecutionMode::StaticNetwork
-    );
-
-    // As of v1.2, MainApp_Task no longer executes any process inline
-    // (see Section 7). If it has nothing further to do, it may safely
-    // end itself here:
-    vTaskDelete(NULL);
-}
-```
-
-* **Single-process `Run(CSProcess&, priority)` has been removed as of v1.3.** There is now exactly one spawn path, for compositions of any size: `Run(InParallel(process), mode)` covers everything the single-process overload used to do, plus a blocking mode it never offered. See [Section 8](#8-what-changed-in-v13) for why, and for a mechanical migration path.
-
----
-
-## 5. External Choice (Alternative / ALT)
-
-The `Alternative` class implements the CSP External Choice operator (☐). It allows a process to wait on multiple input channels simultaneously, proceeding as soon as any one of them is ready. Unchanged in v1.2 and v1.3.
-
-### `Alternative`
-The `Alternative` object is typically constructed on the process stack. It uses a "Resident-Guard" pattern that is entirely heap-free.
-
-* **Syntax**: `Alternative alt(Guard1, Guard2, ...);`
-* **Guard Binding (`|`)**: To bind a channel to a local variable, use the pipe operator: `chan_in | message_variable`. This ensures that when the channel is selected, the data is automatically copied into the variable.
-
-### `fairSelect()`
-This method blocks the process until at least one of the guarded channels is ready to synchronize.
-
-* **Fairness**: It uses a "Fair" selection algorithm to prevent starvation, ensuring that if multiple channels are ready, one is not consistently ignored.
-* **Return Value**: Returns an `int` representing the index of the selected channel (starting at 0).
-
-**Example Usage**:
-```cpp
-void Receiver::run() {
-    Message msgA, msgB;
-    // Bind channels to local variables
-    Alternative alt(inA | msgA, inB | msgB);
-
-    while(true) {
-        // Blocks until a message arrives on either inA or inB
-        int selected = alt.fairSelect();
-
-        switch(selected) {
-            case 0:
-                // msgA is already populated
-                printf("Received from A: %d\n", msgA.sequence_num);
-                break;
-            case 1:
-                // msgB is already populated
-                printf("Received from B: %d\n", msgB.sequence_num);
-                break;
+class Producer : public CSProcessStatic<256> {
+    Chanout<Sample> out = samples.writer();   // this process's own end
+    Chanout<Signal> go  = ready.writer();
+public:
+    void run() override {
+        go << Signal{};                        // waits until the consumer reads it
+        for (uint32_t t = 0; ; ++t) {
+            out << Sample{t, 0.5f};            // blocks only while all 8 slots are full
+            out.write(Sample{t, 1.5f});        // same as <<
         }
     }
+};
+
+class Consumer : public CSProcessStatic<256> {
+    Chanin<Sample> in    = samples.reader();
+    Chanin<Signal> start = ready.reader();
+public:
+    void run() override {
+        Signal s;
+        start >> s;
+        Sample x;
+        while (true) {
+            in >> x;                           // blocks while empty
+            in.read(x);                        // same as >>
+        }
+    }
+};
+```
+
+### Where channels may be constructed
+
+A channel creates its RTOS objects (semaphores) in its constructor, and a failed creation is fatal.
+Construct channels at **namespace scope** or as **function-local `static`s**, never in an ISR, and
+before the interrupt that writes to one is enabled. Details:
+[configuration guide, section 5](https://github.com/OliverFaust/CSP4CMSIS/blob/v2.0.1/Documentation/CSP4CMSIS_Configuration.md).
+
+---
+
+## 5. Interrupts
+
+### Why an ISR cannot use a rendezvous channel
+
+A rendezvous completes only when writer and reader meet, so a writer must be able to wait for its
+partner. An interrupt handler cannot wait. Rendezvous and signal channels therefore have **no ISR
+write path**. An ISR writes to a **buffered** channel, which keeps the value until the reader takes it
+(also when the reader is not yet waiting).
+
+### `isrWriter()`
+
+`SamplingBufferedChannel<T, SIZE, P>::isrWriter()` (and so `BufferedChannel`) returns an
+`IsrChanout<T>`, the only way to write from an interrupt:
+
+<!-- synopsis: declarations from the v2.0.1 headers -->
+```cpp
+bool putFromISR(const T& data);   // never blocks
+```
+
+- **Block:** returns `false` if the channel is full (nothing is written).
+- **KeepNewest / KeepOldest:** always returns `true`; the policy decides what is kept.
+- **Element size:** `sizeof(T)` must be ≤ `CSP4CMSIS_ISR_MAX_ELEMENT_SIZE` (default 64 bytes;
+  `static_assert`). The copy runs with interrupts at and below the threshold masked, so the limit bounds
+  the added interrupt latency. For larger data, send an index into a static pool.
+- **No manual yield:** `putFromISR()` wakes a waiting reader through CMSIS-RTOS2 calls that are valid in
+  an ISR, and the RTOS switches to it when the handler returns. Do not add an RTOS-specific yield.
+- Reading is unchanged: `in >> v` or an ALT guard.
+
+### The interrupt-priority rule
+
+**Every ISR that calls CSP4CMSIS or the RTOS must have an NVIC priority numerically greater than or
+equal to `CSP4CMSIS_MAX_SYSCALL_INTERRUPT_PRIORITY`** (lower urgency). The library's critical sections
+raise BASEPRI to that level; an ISR with a numerically lower priority is not masked and can interrupt
+a channel update half-way.
+
+- Example: with 3 priority bits (0…7) and a threshold of 5, such ISRs must be at 5, 6 or 7. The
+  STM32G4 has 4 bits (0…15), so with 5 it is 5…15.
+- **After reset, every interrupt has priority 0, the highest.** Many vendor drivers do not change it.
+  Set the priority explicitly before the interrupt is enabled or its driver is started: with
+  `NVIC_SetPriority(irq, CSP4CMSIS_MAX_SYSCALL_INTERRUPT_PRIORITY)` (or a larger value), or in STM32CubeMX
+  under **System Core > NVIC** by ticking **"Uses FreeRTOS functions"** for that interrupt.
+- ISRs above the threshold (numerically lower) must not call the library or the RTOS; the library's
+  critical sections do not delay them.
+
+### Pattern: a button ("latest press counts")
+
+Capacity 1 and `KeepNewest`: a press that arrives while the previous one has not been read replaces it.
+The ISR never blocks and never fails.
+
+```cpp
+#include "csp/csp4cmsis.h"
+#include <cstdio>
+
+using namespace csp;
+
+static SamplingBufferedChannel<uint32_t, 1, BufferPolicy::KeepNewest> presses;
+
+// Called from the button's interrupt handler (STM32: from the EXTI callback).
+extern "C" void button_pressed_from_isr(void) {
+    static uint32_t count = 0;
+    (void)presses.isrWriter().putFromISR(++count);     // KeepNewest: always true
+}
+
+class ButtonHandler : public CSProcessStatic<256> {
+    Chanin<uint32_t> in = presses.reader();
+public:
+    void run() override {
+        uint32_t count;
+        while (true) {
+            in >> count;                               // the latest press
+            printf("button: %lu presses so far\r\n", (unsigned long)count);
+        }
+    }
+};
+
+// Before the interrupt is enabled (NUCLEO-G474RE user button: EXTI15_10_IRQn).
+void allow_csp4cmsis_calls(IRQn_Type irq) {
+    NVIC_SetPriority(irq, CSP4CMSIS_MAX_SYSCALL_INTERRUPT_PRIORITY);
+}
+```
+
+### Pattern: a completion event (none may be lost)
+
+Capacity 1 and `Block`: the process starts one transfer and waits for its completion before starting
+the next, so at most one completion can be pending. A failed write therefore means a second
+completion arrived before the first was read (a driver or protocol error): stop, through the
+library's fatal-error hook, instead of losing it.
+
+```cpp
+#include "csp/csp4cmsis.h"
+
+using namespace csp;
+
+static BufferedChannel<bool, 1> transfer_done;
+
+extern "C" void start_transfer(void);   // application: starts one interrupt-driven transfer
+
+// Called from the transfer-complete interrupt (STM32 HAL: e.g. HAL_UART_TxCpltCallback).
+extern "C" void transfer_complete_from_isr(void) {
+    if (!transfer_done.isrWriter().putFromISR(true)) {
+        // A second completion before the first was read: stop (section 6, fatal-error hook).
+        csp4cmsis_fatal_error("transfer completion lost");
+    }
+}
+
+class Transmitter : public CSProcessStatic<256> {
+    Chanin<bool> done = transfer_done.reader();
+public:
+    void run() override {
+        bool ok;
+        while (true) {
+            start_transfer();
+            done >> ok;                 // kept even if it arrived before this read
+            SleepFor(1000);
+        }
+    }
+};
+```
+
+---
+
+## 6. Alternation
+
+`Alternative` waits for whichever of several **guards** becomes ready first, and performs exactly
+that one.
+
+- **Guards:** `in | var` (input guard: when selected, the value is read into `var`), `out | value`
+  (output guard: when selected, `value` is written) and `RelTimeoutGuard` (a named object). Pass them to
+  the constructor, `Alternative alt(g0, g1, ...)`, or add them with `addBinding(...)`. At most
+  **16 guards** (`CSP4CMSIS_ALT_MAX_GUARDS`); further bindings are ignored.
+- **`int priSelect()`:** blocks until a guard is ready and performs the **first** ready guard in the
+  order given; returns its index (0 = first guard).
+- **`int fairSelect()`:** the same, but starts the search after the previous winner, so a guard that is
+  always ready cannot starve the others.
+- An `Alternative` keeps references to its guards' variables; keep them alive while it is used. It is
+  not copyable.
+
+### `RelTimeoutGuard`
+
+`RelTimeoutGuard(csp::Time delay)` is selected once `delay` ticks have passed since the `select()` it
+takes part in started, unless another guard is selected first.
+
+- **Timer-free:** no RTOS timer, no timer service task, no RTOS memory. The deadline is fixed when
+  `select()` starts; nothing (e.g. a wakeup that turns out to be stale) postpones it.
+- Precision: selected after `delay` ticks, at most `delay + 1`. `Time(0)` is ready at once, so the
+  `select()` polls. With several timeout guards, the earliest deadline wins.
+- A `RelTimeoutGuard` is not copyable; declare it as a named variable and pass it by name.
+
+```cpp
+#include "csp/csp4cmsis.h"
+#include <cstdio>
+
+using namespace csp;
+
+static Channel<int> left, right, merged;
+
+class Merger : public CSProcessStatic<512> {
+    Chanin<int>  a   = left.reader();
+    Chanin<int>  b   = right.reader();
+    Chanout<int> out = merged.writer();
+public:
+    void run() override {
+        int x = 0, y = 0;
+        RelTimeoutGuard quiet(Milliseconds(100));      // measured from each select()
+        Alternative alt(a | x, b | y, quiet);
+        while (true) {
+            switch (alt.fairSelect()) {
+                case 0: out << x; break;
+                case 1: out << y; break;
+                case 2: printf("no input for 100 ms\r\n"); break;
+            }
+        }
+    }
+};
+```
+
+An output guard offers a value while the process also listens elsewhere:
+
+```cpp
+#include "csp/csp4cmsis.h"
+
+using namespace csp;
+
+static Channel<int>    numbers;
+static SignalChannel<> stop;
+
+class Counter : public CSProcessStatic<256> {
+    Chanout<int>   out  = numbers.writer();
+    Chanin<Signal> quit = stop.reader();
+public:
+    void run() override {
+        int next = 0;
+        Signal s;
+        Alternative alt(quit | s, out | next);         // output guard: out | value
+        while (alt.priSelect() == 1) {                 // stop wins if both are ready
+            ++next;                                    // `next` was written; offer the next one
+        }
+    }
+};
+```
+
+### Rules
+
+- **Symmetric alternation communicates:** an ALT with an output guard on one end of a rendezvous
+  channel and an ALT with an input guard on the other end pair up (since 2.0).
+- **At most one ALTing process per channel end:** one ALTing reader and one ALTing writer per channel
+  (rendezvous and buffered). Any number of processes may use plain blocking reads and writes.
+- **Thread flags:** the library uses thread flags 0 and 8–23 of every process thread; 1–7 and 24–30 are
+  free. With FreeRTOS, CMSIS-RTOS2 thread flags are the task notification at index 0, so native FreeRTOS
+  code that uses index-0 notifications on a CSP process's thread collides with the library.
+
+### Misuse ends in the fatal-error hook
+
+A second ALTing process on a channel end, a failed RTOS object creation and similar errors call
+`csp4cmsis_fatal_error(const char* message)` instead of continuing with a broken channel. The default
+(weak) stores the message in `csp4cmsis_last_fatal_error` for the debugger and spins. Applications may
+call it too, for their own unrecoverable errors.
+
+**It may be called from an ISR** (the library calls it from threads, but an application may call it from
+an interrupt handler, as the completion pattern in section 5 does). A replacement must therefore be
+ISR-safe: no `printf` or other RTOS or stdio call; for example, store the message and halt. It must not
+return:
+
+```cpp
+#include "csp/csp4cmsis.h"
+
+// For the debugger.
+const char* volatile app_fatal_message = nullptr;
+
+extern "C" void csp4cmsis_fatal_error(const char* message) {
+    __disable_irq();
+    app_fatal_message = message;      // e.g. "CSP4CMSIS: rendezvous channel: second ALTing reader ..."
+    for (;;) { }
 }
 ```
 
 ---
 
-## 6. Memory and Safety Guarantees
+## 7. Barrier
 
-### Heap-Free Operation (v2.0.1)
-`csp4cmsis` is designed for safety-critical ARM environments where dynamic memory allocation (the "Heap") is prohibited.
+`Barrier(N)` (N ≥ 1) is a reusable synchronisation point: `sync()` blocks until N processes have
+called it, then releases all of them, and the next phase begins. A process that runs ahead into the
+next phase waits there; it cannot overtake a slow process of the previous phase.
 
-1. **The library never allocates.** No `malloc`, `operator new` or RTOS heap call anywhere in the library, neither during network construction nor during communication or selection.
-2. **Static RTOS objects:** with `CSP4CMSIS_STATIC_ALLOCATION` defined, every RTOS object the library creates (process threads, channel and barrier semaphores) has a statically allocated control block. Timeout guards (`RelTimeoutGuard`) create no RTOS object at all (v2.0.1). Process stacks are always static (`CSProcessStatic<N>`).
-3. **Static Channels:** channels should be declared static, so they reside in `.data`/`.bss`.
-4. **Stack-Based ALT:** the `Alternative` object and its guards reside on the task stack; memory use is deterministic.
-5. **Deterministic Latency:** O(1) time for all channel operations, including KeepNewest overwrites.
-6. **Thread Safety:** buffered-channel updates (including a KeepNewest overwrite from an ISR) happen inside one short critical section, so a reader never sees a partially written element.
+```cpp
+#include "csp/csp4cmsis.h"
 
-> **Verified:** the CSP4CMSIS regression suite passes on FreeRTOS and Keil RTX5 with RTOS dynamic allocation disabled (Corstone-300 FVP, Arm Compiler 6 and GCC), and with v2.0.1 also on ST's STM32Cube CMSIS-RTOS2 wrapper (MPS2 Cortex-M4 FVP and NUCLEO-G474RE).
->
-> **What a completely heap-free *system* additionally needs:** RTOS configuration (FreeRTOS: `configSUPPORT_DYNAMIC_ALLOCATION 0` plus two workarounds for the CMSIS-FreeRTOS adapter; RTX5: `OS_DYNAMIC_MEM_SIZE 0` and, with the Arm C library, a static mutex pool), and care with the C library's own heap (`printf` may allocate). See `Documentation/CSP4CMSIS_Configuration.md`, section 6, in the CSP4CMSIS repository.
->
-> **Earlier versions:** before v2.0.0, channel mutexes and semaphores, `Barrier` and timeout guards were allocated from the RTOS heap, so "zero-heap" then applied only to steady-state channel and ALT operation. In v2.0.0 a timeout guard was an RTOS timer with a static control block; on ST's wrapper it still took 16 bytes of RTOS heap (see the v2.0.0 known issues).
->
-> The stack-introspection accessors added in v1.3 (Section 1) are pure reads of state the RTOS already maintains; they perform no allocation and add no runtime cost beyond the RTOS call they wrap.
+using namespace csp;
 
-### Deterministic Synchronization
-Unlike standard RTOS queues, csp4cmsis channels default to *Rendezvous* (capacity 0). This means:
-* The *Sender* blocks until the *Receiver* arrives.
-* The *Receiver* blocks until the *Sender* arrives.
-* The data transfer happens only when both "shake hands," providing a formal proof of synchronization.
+static Barrier step(3);                 // three processes per step
 
----
+class Stage : public CSProcessStatic<256> {
+public:
+    void run() override {
+        while (true) {
+            // ... this stage's share of the step ...
+            step.sync();                // wait for the other two stages
+        }
+    }
+};
 
-## 7. What Changed in v1.2
+static Stage s1, s2, s3;
 
-### The problem this release fixes
-
-In v1.1, `InParallel(P1, P2, ..., Pn)` treated `P1` differently from every other argument:
-
-* `P1` ran **inline**, on the stack and at the priority of whatever task called `Run(...)`.
-* `P2 .. Pn` were each spawned as their own FreeRTOS task, with a **fixed, hardcoded 256-word stack** and a fixed priority, regardless of what that process actually needed.
-
-This meant a process's required stack size determined where it had to be placed in the argument list — a constraint that was invisible from the public API and existed only as a source comment convention ("`X` must be listed first"). Reordering `InParallel(...)` arguments for readability, or adding a new process ahead of an existing one, could silently reduce a process's stack from several kilobytes to 256 words with no compiler warning and no runtime error until a stack overflow occurred.
-
-### The fix
-
-* Every process spawned via `InParallel(...)` — including what would have been position 0 — is now spawned as its own FreeRTOS task, sized and prioritized according to that process's own `stackWords()` / `taskPriority()` (or the composition default, if unset).
-* The calling task (e.g. `MainApp_Task`) no longer executes any process logic inline. Once `Run(...)` returns (or, in `StaticNetwork` mode, once it has finished spawning), the calling task's own stack is free for it to do as it pleases — including ending itself via `vTaskDelete(NULL)` if it has no further role.
-
-### Compatibility
-
-* **Source compatibility:** Existing code compiles unchanged. `stackWords()` / `taskPriority()` are optional overrides; the extra `priority` argument on `Run(...)` is defaulted.
-* **Default values are chosen to reproduce v1.1 behavior exactly** for any process that doesn't override the new methods: processes spawned via `InParallel(...)` default to the same 256-word stack and same priority v1.1 used for non-first processes. The one behavior that necessarily changes is that a process no longer inherits the *caller's* stack/priority by virtue of being listed first — if your v1.1 code relied on that (per the "must be listed first" convention), give that specific process an explicit `stackWords()` / `taskPriority()` override reproducing the values it used to inherit. This is a one-time, mechanical migration step: move the number from the comment into the class.
-* **ABI note for prebuilt/vendored `libcsp4cmsis.a`:** `CSProcess` gained two new virtual methods, which changes its vtable layout. If your project links against a prebuilt static library rather than rebuilding CSP4CMSIS from source, ensure the library is rebuilt against the v1.2 headers before linking v1.2 application code against it — mixing an old prebuilt `.a` with new headers is not safe.
-* **No channel, ALT, or ISR API changed.** Sections 2, 3, 5, and 6 above are identical to v1.1.
-
-### Migration checklist
-
-1. Identify any process that was relying on being listed first in `InParallel(...)` for extra stack or elevated priority (check for a comment like "`must be first`" or "`must remain argument 0`").
-2. Add explicit `stackWords()` / `taskPriority()` overrides to that process's class, using the values it used to inherit from the caller.
-3. Reorder `InParallel(...)` arguments freely — e.g. into physical/topological order — since position no longer carries any stack or priority meaning.
-4. If the calling task (e.g. `MainApp_Task`) has nothing to do after `Run(...)` returns, consider ending it with `vTaskDelete(NULL)` to reclaim its stack, and confirm your project's heap scheme (`heap_2`/`heap_4`/`heap_5`) actually returns freed memory to the pool if this matters for your RAM budget.
-5. If you link a prebuilt `libcsp4cmsis.a`, rebuild it against the v1.2 headers.
+void start_stages(void) {
+    Run(InParallel(s1, s2, s3), ExecutionMode::StaticNetwork);
+}
+```
 
 ---
 
-## 8. What Changed in v1.3
+## 8. Memory guarantees
 
-### New functionality
+- **The library allocates nothing.** No `malloc`, `operator new`, `pvPortMalloc()` or other allocator
+  call anywhere in the library, during construction or at run time.
+- **Static RTOS objects:** with `CSP4CMSIS_STATIC_ALLOCATION`, every RTOS object the library creates
+  (process threads, `Run()`'s completion semaphore, the semaphores of channels and `Barrier`) has a
+  statically allocated control block. Process stacks are always static (`CSProcessStatic<N>`).
+  `RelTimeoutGuard` creates no RTOS object at all. `Alternative`s and guards are ordinary objects on
+  the process's stack.
+- **Channels** store their elements inside the channel object; declare them static so they live in
+  `.bss`/`.data`.
+- **Not covered:** the RTOS's own configuration, objects your application creates, and the **C
+  library**. newlib's `printf` allocates its `stdout` buffer with `malloc`: 1032 bytes measured on the
+  NUCLEO-G474RE (book examples); `setvbuf(stdout, NULL, _IONBF, 0)` before the first `printf` removes
+  that allocation.
+- What a completely heap-free system additionally needs (RTOS settings and two adapter workarounds):
+  [configuration guide, section 6](https://github.com/OliverFaust/CSP4CMSIS/blob/v2.0.1/Documentation/CSP4CMSIS_Configuration.md).
 
-* **Stack usage introspection** (Section 1): `CSProcess::stackHighWaterMarkWords()` and `lastStackHighWaterMarkWords()`, backed by FreeRTOS's `uxTaskGetStackHighWaterMark()`. Requires `INCLUDE_uxTaskGetStackHighWaterMark` enabled in `FreeRTOSConfig.h` to return real data (silently returns `CSP_STACK_HWM_UNAVAILABLE` otherwise — no build error).
-* **`ParallelHelper::forEachProcess(fn)`** (Section 4): apply a callback to every process in a composition, usable at any time after spawning — the mechanism for building a network-wide report (e.g. a periodic stack-usage dump) out of a `StaticNetwork` whose processes never naturally finish.
+**What is verified:**
 
-### The problem this release also fixes
+- **Protocols, model-checked with ProB** (CSP-M models in
+  [`docs/formal/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v2.0.1/docs/formal)): the rendezvous
+  ALT protocol (`alt_owrv_extended.csp`), the buffered channel with its ALT wakeup
+  (`buffered_channel_v2.csp`) and the timer-free ALT timeout (`alt_timeout_deadline.csp`). These are
+  models of the protocols, not of the C++ code.
+- **The code, by the regression suite:**
+  [`tests/fvp_sse300/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v2.0.1/tests/fvp_sse300) on the
+  Corstone-300 FVP (FreeRTOS and Keil RTX5, Arm Compiler 6 and GCC, including builds with RTOS dynamic
+  allocation disabled), and with ST's wrapper on the MPS2 Cortex-M4 FVP;
+  [`tests/hw_nucleo_g474/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v2.0.1/tests/hw_nucleo_g474)
+  on a NUCLEO-G474RE; and compile-time checks in
+  [`tests/compile_checks/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v2.0.1/tests/compile_checks).
 
-Prior to v1.3, `public_task.h` exposed a second, independent spawn path — `Run(CSProcess&, priority)` — alongside the `InParallel(...)`-based path used for compositions. The two paths had diverged: the single-process path passed a raw `CSProcess*` as the FreeRTOS task's `pvParameters`, while `ThreadFuncWrapper` (the function every spawned task actually runs) unconditionally expected a `TaskCtx*` — the wrapper type the `InParallel(...)` path already constructs correctly. Any call to the single-process `Run(...)` overload was therefore reading application memory as if it were a different, incompatible struct: undefined behavior, not merely a latent risk.
+---
 
-`ParallelHelper<Processes...>` already handles a composition of exactly one process correctly — it's an ordinary variadic template, and nothing about it assumes two or more arguments — and every real call site in the existing codebase already used the `InParallel(...)` path. Rather than fix the single-process path's `pvParameters` mismatch and maintain two spawn implementations indefinitely, v1.3 removes it: `Run(InParallel(process), mode)` is now the one way to spawn any composition, from one process to many, and it's the path that was already correct.
+## 9. What changed in 2.0
 
-### Compatibility
+- **Channels:** rendezvous channels are Block only; sampling policies (KeepNewest/KeepOldest) only on
+  buffered channels. Buffered channels are static ring buffers. Elements must be trivially copyable.
+- **Interrupts:** ISRs write only to buffered channels, through `isrWriter()`;
+  `Chanout<T>::putFromISR()` is gone.
+- **ALT:** both ends of a rendezvous channel may alternate and communicate; misuse (a second ALTing
+  process on an end) is reported through `csp4cmsis_fatal_error()`. `Barrier` is reusable.
+- **RTOS:** CMSIS-RTOS2 throughout (`osPriority_t`, thread flags), static allocation of every RTOS
+  object, no allocation in the library.
+- **2.0.1:** `RelTimeoutGuard` without an RTOS timer (fixes the timer-task priority problem of 2.0.0);
+  builds without packs (`CSP4CMSIS_DEVICE_HEADER`, include path `inc/` only); the STM32CubeIDE guide.
 
-* **This is not a source-compatible change.** Unlike v1.2, any code that calls `Run(CSProcess&, priority)` directly will fail to compile under v1.3 — the overload no longer exists. This is intentional: the removed path was never safe to call in the first place (see above), so there is no working "old behavior" worth silently preserving.
-* `TEST_STACK_SIZE_WORDS` and `CSP_DEFAULT_TASK_PRIORITY` — macros that existed solely to supply the removed overload's defaults — are also removed from `public_task.h`. Code referencing either directly will need its own replacement values.
-* **New functionality is additive and non-breaking.** `stackHighWaterMarkWords()`, `lastStackHighWaterMarkWords()`, and `forEachProcess(...)` are new methods; no existing method signature changed.
-* **ABI note for prebuilt/vendored `libcsp4cmsis.a`:** `CSProcess` gained two new *private data members* (backing the stack-introspection accessors above), which changes `sizeof(CSProcess)` and the offsets of anything a derived class adds after them. Unlike v1.2's change, the new accessors themselves are **not virtual**, so the vtable layout is unaffected this time — but the object layout is, which is exactly as ABI-breaking for a prebuilt static library. As in v1.2: rebuild `libcsp4cmsis.a` against the v1.3 headers before linking v1.3 application code against it.
-
-### Migration checklist
-
-1. Search for any call site of `Run(someProcess, priority)` — the single-argument-process form. (Grep for `Run(` and check each result's first argument type; the composition form always passes something built from `InParallel(...)`.)
-2. Replace each with the `InParallel(...)`-based equivalent, choosing the mode that matches the old call's behavior:
-   * The old single-process `Run(...)` spawned the task and returned immediately (fire-and-forget). The equivalent is:
-     ```cpp
-     Run(InParallel(process), ExecutionMode::StaticNetwork, priority);
-     ```
-   * If you'd actually prefer the caller to block until the process finishes — a mode the old overload never offered — use the default (`TerminatingNetwork`) mode instead:
-     ```cpp
-     Run(InParallel(process), priority);
-     ```
-3. If your code referenced `TEST_STACK_SIZE_WORDS` or `CSP_DEFAULT_TASK_PRIORITY` directly, replace with an explicit literal or your own named constant.
-4. If you link a prebuilt `libcsp4cmsis.a`, rebuild it against the v1.3 headers (same requirement as v1.2, for a different underlying reason — see the ABI note above).
-5. To use the new stack-introspection accessors meaningfully, confirm `INCLUDE_uxTaskGetStackHighWaterMark` is set to `1` in your project's `FreeRTOSConfig.h` — check this first if `stackHighWaterMarkWords()` always returns `CSP_STACK_HWM_UNAVAILABLE`.
+Details and migration notes:
+[`docs/CHANGES_2.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v2.0.1/docs/CHANGES_2.0.md),
+[`docs/CHANGES_2.0.1.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v2.0.1/docs/CHANGES_2.0.1.md).
