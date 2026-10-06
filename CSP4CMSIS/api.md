@@ -1,8 +1,9 @@
-# CSP4CMSIS API Reference (v2.1.0)
+# CSP4CMSIS API Reference (v3.0.0)
 
 CSP4CMSIS is a C++17 library of CSP processes, channels and alternation on top of any CMSIS-RTOS2
-kernel. This page documents the API of **v2.1.0** (tag
-[`v2.1.0`](https://github.com/OliverFaust/CSP4CMSIS/tree/v2.1.0)). Everything is in namespace `csp`
+kernel. This page documents the API of **v3.0.0** (tag
+[`v3.0.0`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.0)). The 3.x API is stable: code that
+compiles with 3.0 compiles with every 3.x release. Everything is in namespace `csp`
 and comes with one include:
 
 ```cpp
@@ -13,7 +14,7 @@ using namespace csp;
 
 The pre-2.0 API (1.x, up to v1.3) is archived on a [separate page](./api-1.x).
 
-Every code example on this page is compiled against v2.1.0 by
+Every code example on this page is compiled against v3.0.0 by
 [`tests/doc_examples/`](https://github.com/OliverFaust/CSP4CMSIS/tree/main/tests/doc_examples) in the
 CSP4CMSIS repository.
 
@@ -24,26 +25,25 @@ CSP4CMSIS repository.
 ### 1a. STM32CubeMX / STM32CubeIDE, without packs
 
 This is how the book's examples use the library. Step-by-step, tested guide:
-[`Documentation/CSP4CMSIS_STM32CubeIDE.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v2.1.0/Documentation/CSP4CMSIS_STM32CubeIDE.md).
+[`Documentation/CSP4CMSIS_STM32CubeIDE.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/Documentation/CSP4CMSIS_STM32CubeIDE.md).
 
 - **CubeMX:** Middleware **FREERTOS**, **Interface: CMSIS_V2** (ST's CMSIS-RTOS2 wrapper). Static
   allocation is enabled with that interface (Memory Allocation: Dynamic / Static).
-- **Source:** take the folder `csp4cmsis/` and the file `LICENSE` from either the v2.1.0 release's
-  **Source code (zip)** on GitHub ([release page](https://github.com/OliverFaust/CSP4CMSIS/releases/tag/v2.1.0))
-  or the unpacked `OliverFaust.CSP4CMSIS.2.1.0.pack` (a zip archive; same release page). Copy them to
+- **Source:** take the folder `csp4cmsis/` and the file `LICENSE` from either the v3.0.0 release's
+  **Source code (zip)** on GitHub ([release page](https://github.com/OliverFaust/CSP4CMSIS/releases/tag/v3.0.0))
+  or the unpacked `OliverFaust.CSP4CMSIS.3.0.0.pack` (a zip archive; same release page). Copy them to
   `<project>/lib/csp4cmsis/`, outside `Core/` (CubeMX regenerates `Core/`). Add `lib/csp4cmsis/src` as a
   source folder.
-- **Include path:** `lib/csp4cmsis/inc` only, never `lib/csp4cmsis/inc/csp` (its `time.h` would hide the
-  C library's `<time.h>`).
+- **Include path:** `lib/csp4cmsis/inc` only.
 - **G++ language standard:** GNU++17 (CubeIDE's default GNU++14 does not compile the library).
-- **Four G++ defines:**
-  `CSP4CMSIS_RTOS2_BACKEND_FREERTOS`, `CSP4CMSIS_MAX_SYSCALL_INTERRUPT_PRIORITY=5`,
-  `CSP4CMSIS_STATIC_ALLOCATION`, `CSP4CMSIS_DEVICE_HEADER="stm32g4xx.h"` (section 2).
+- **Two G++ defines:** `CSP4CMSIS_MAX_SYSCALL_INTERRUPT_PRIORITY=5` and
+  `CSP4CMSIS_DEVICE_HEADER="stm32g4xx.h"` (section 2). Static allocation is the default, and FreeRTOS is
+  found from `FreeRTOS.h`.
 
 ### 1b. CMSIS pack
 
 ```bash
-cpackget add -a https://github.com/OliverFaust/CSP4CMSIS/releases/download/v2.1.0/OliverFaust.CSP4CMSIS.2.1.0.pack
+cpackget add -a https://github.com/OliverFaust/CSP4CMSIS/releases/download/v3.0.0/OliverFaust.CSP4CMSIS.3.0.0.pack
 ```
 
 - `-a` accepts the pack's MIT licence non-interactively; without it, `cpackget` asks, and in a script
@@ -70,15 +70,15 @@ adapter, Keil RTX5, and ST's STM32Cube wrapper (FreeRTOS, CubeMX "CMSIS_V2").
 
 | Define | Required | Meaning |
 |---|---|---|
-| `CSP4CMSIS_MAX_SYSCALL_INTERRUPT_PRIORITY=<n>` | always (`#error` otherwise) | The NVIC priority, **unshifted**, at and below which the library's critical sections mask interrupts (BASEPRI). Use your RTOS's threshold, e.g. FreeRTOS's `configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY`. See section 5 for what it means for your ISRs. |
+| `CSP4CMSIS_MAX_SYSCALL_INTERRUPT_PRIORITY=<n>` | always (`#error` otherwise) | The NVIC priority, **unshifted**, at and below which the library's critical sections mask interrupts (BASEPRI). Use your RTOS's threshold, e.g. FreeRTOS's `configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY`. 0 or a shifted value (0x50, 0xA0) does not compile (`static_assert`). See section 5 for what it means for your ISRs. |
 | `CSP4CMSIS_DEVICE_HEADER="<header>"` | builds without packs (`#error` if there is neither this nor a pack's `RTE_Components.h`) | The device header, for CMSIS-Core (`__NVIC_PRIO_BITS`, BASEPRI access), e.g. `"stm32g4xx.h"`. |
-| `CSP4CMSIS_STATIC_ALLOCATION` | optional; needed for a heap-free system | Every RTOS object the library creates gets a statically allocated control block. |
-| `CSP4CMSIS_RTOS2_BACKEND_FREERTOS` or `CSP4CMSIS_RTOS2_BACKEND_RTX5` | with `CSP4CMSIS_STATIC_ALLOCATION` (`#error` otherwise) | Selects the backend's control-block types. Exactly one. Any FreeRTOS-based CMSIS-RTOS2 layer, including ST's, is `_FREERTOS`. |
+| `CSP4CMSIS_DYNAMIC_ALLOCATION` | optional | Opts out of the default, static allocation: the RTOS objects the library creates then come from the RTOS's allocator. |
+| `CSP4CMSIS_RTOS2_BACKEND_FREERTOS` or `CSP4CMSIS_RTOS2_BACKEND_RTX5` | only if detection fails (`#error` then) | The backend, whose control-block types static allocation uses. Detected from `RTE_Components.h` (pack builds), else from `FreeRTOS.h` or `rtx_os.h` on the include path. Any FreeRTOS-based CMSIS-RTOS2 layer, including ST's, is `_FREERTOS`. |
 | `CSP4CMSIS_ISR_MAX_ELEMENT_SIZE=<bytes>` | optional, default 64 | Largest element an ISR may write (section 5). |
 | `CSP_TYPICAL_STACK_WORDS=<words>` | optional, default 256 | A documented starting value for `CSProcessStatic<N>`; not used by the library itself. |
 
 How to choose each value for your board:
-[`Documentation/CSP4CMSIS_Configuration.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v2.1.0/Documentation/CSP4CMSIS_Configuration.md).
+[`Documentation/CSP4CMSIS_Configuration.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/Documentation/CSP4CMSIS_Configuration.md).
 
 ---
 
@@ -89,8 +89,8 @@ How to choose each value for your board:
 A process is a class derived from `CSProcessStatic<N>` that implements `run()`:
 
 - **`N` is the stack size in words** (`uint32_t`, 4 bytes each): `CSProcessStatic<256>` has 1 KB of
-  stack. The stack (8-byte aligned) and, with `CSP4CMSIS_STATIC_ALLOCATION`, the thread control block
-  are members of the object.
+  stack; at least `CSP_MIN_STACK_WORDS` (64, `static_assert`). The stack (8-byte aligned) and, with
+  static allocation (the default), the thread control block are members of the object.
 - **Process objects must have static storage duration** (namespace scope or function-local `static`):
   the object's lifetime is the thread's storage.
 - **`void run()`** is the process body. When it returns, the process's thread ends.
@@ -117,7 +117,7 @@ public:
     void run() override {
         for (uint32_t i = 0; ; ++i) {
             out << Reading{i, static_cast<int32_t>(i) * 10};
-            SleepFor(100);                     // 100 ticks
+            SleepFor(Milliseconds(100));
         }
     }
 };
@@ -153,12 +153,8 @@ void start_network(void) {
 CMSIS-RTOS2 thread (`osThreadNew()` with the process's static stack and control block); position in
 the argument list has no meaning.
 
-<!-- synopsis: declarations from the v2.1.0 headers -->
+<!-- synopsis: declarations from the v3.0.0 headers -->
 ```cpp
-template <typename... Processes>
-void Run(ParallelHelper<Processes...> helper,
-         osPriority_t priority = CSP_DEFAULT_NETWORK_PRIORITY);          // TerminatingNetwork
-
 template <typename... Processes>
 void Run(ParallelHelper<Processes...> helper, ExecutionMode mode,
          osPriority_t priority = CSP_DEFAULT_NETWORK_PRIORITY);
@@ -167,18 +163,14 @@ void Run(ParallelHelper<Processes...> helper, ExecutionMode mode,
 - **`ExecutionMode::StaticNetwork`:** starts all threads and returns at once. For networks that run
   for ever. Can be called from a thread, or from `main()` between `osKernelInitialize()` and
   `osKernelStart()`.
-- **`ExecutionMode::TerminatingNetwork`** (and the overload without a mode): starts all threads and
-  blocks the calling thread until every process has returned from `run()`. Call it from a thread.
+- **`ExecutionMode::TerminatingNetwork`:** starts all threads and blocks the calling thread until every
+  process has returned from `run()`. Call it from a thread.
+- **The mode is always written** (3.0): there is no default, so a blocking `Run()` is never a surprise.
 - **`priority`:** the composition priority, for every process that does not override
-  `taskPriority()`. Default `CSP_DEFAULT_NETWORK_PRIORITY` = `osPriorityLow` (its 2.0 name
-  `CSP_LEGACY_PARALLEL_PRIORITY` is deprecated).
-- **Deprecated (2.1.0; removed in 3.0):** the single-process `Run(CSProcess& p, priority)` and its default
-  `CSP_DEFAULT_TASK_PRIORITY`. Use `Run(InParallel(p), ExecutionMode::StaticNetwork, priority)`, which
-  also names the thread after `name()`. **Note:** the deprecated overload's default priority is
-  `osPriorityRealtime7`, almost the highest there is; the replacement's is `osPriorityLow`.
+  `taskPriority()`. Default `CSP_DEFAULT_NETWORK_PRIORITY` = `osPriorityLow`.
+- **One process** is a composition of one: `Run(InParallel(p), ExecutionMode::StaticNetwork, priority)`.
 - **If `osThreadNew()` fails** (out of RTOS memory, invalid attributes), `Run()` calls
   `csp4cmsis_fatal_error("CSP4CMSIS: Run(): osThreadNew() failed")` and does not return (section 6).
-  (2.0.x printed a message and continued, so a `TerminatingNetwork` caller waited for ever.)
 
 ```cpp
 #include "csp/csp4cmsis.h"
@@ -251,20 +243,20 @@ void monitor(void) {
 }
 ```
 
-### Time: `SleepFor`, `Seconds`, `Milliseconds`
+### Time: `SleepFor`, `Ticks`, `Milliseconds`, `Seconds`, `Forever`
 
-- **`void SleepFor(Time duration)`** suspends the calling process for a duration:
-  `SleepFor(Milliseconds(250))` (2.1.0).
-- **`void SleepFor(uint32_t ticks_to_sleep)`** suspends it for that many **RTOS ticks** (`osDelay()`),
-  not milliseconds: a plain number is always ticks, because `Time`'s constructor is `explicit`.
-- **`csp::Time`** holds a tick count: `Time(ticks)`, `to_ticks()`. `Seconds(s)` and `Milliseconds(ms)`
-  convert with the kernel tick frequency (`osKernelGetTickFreq()`).
-- **They round up** (2.1.0), computed in 64 bits: a non-zero duration is never shorter than requested
+- **`void SleepFor(Time duration)`** suspends the calling process for a duration (`osDelay()`):
+  `SleepFor(Milliseconds(250))`, `SleepFor(Ticks(10))`, `SleepFor(Forever)`. A plain number does not
+  compile: whether it meant ticks or milliseconds would be a guess.
+- **`csp::Time`** holds a tick count: `Time(ticks)` (explicit), `to_ticks()`; `constexpr`.
+  **`Ticks(n)`** is `n` RTOS ticks; **`Forever`** is `osWaitForever` (as a `RelTimeoutGuard` delay, the
+  longest timeout, 0xFFFFFFFE ticks). `Seconds(s)` and `Milliseconds(ms)` convert with the kernel tick
+  frequency (`osKernelGetTickFreq()`).
+- **They round up**, computed in 64 bits: a non-zero duration is never shorter than requested
   (at most one tick longer) and at least 1 tick; `Milliseconds(5)` at a 100 Hz tick is `Time(1)`.
   `Milliseconds(0)` is `Time(0)`. Durations that are a whole number of ticks are exact. Very long
   durations saturate at `0xFFFFFFFE` ticks (`0xFFFFFFFF` is `osWaitForever`). (2.0.x rounded down, so
-  `Milliseconds(5)` at 100 Hz was 0 ticks, and `ms * freq` overflowed 32 bits above about 71 minutes
-  at 1 kHz.)
+  `Milliseconds(5)` at 100 Hz was 0 ticks.)
 
 ---
 
@@ -274,31 +266,29 @@ A channel object owns the communication; processes use its ends: `writer()` retu
 `reader()` a `Chanin<T>`. **Each process keeps its own end object** (the end holds that process's ALT
 state): do not share one `Chanin`/`Chanout` object between processes.
 
+**Any channel may have several writers and several readers**, each with its own end, using plain `<<`
+and `>>`: they are served one at a time. **In an ALT, at most one reader and one writer of a channel may
+be ALTing**; a second ALTing reader or writer is a fatal error.
+
 | Channel | Capacity | Policies | ISR writer |
 |---|---|---|---|
 | `Channel<T>` | 0 (rendezvous) | Block only | no |
-| `Any2OneChannel<T>` | 0 (rendezvous) | Block only | no |
-| `SignalChannel<>` | 0 (rendezvous, no data: `csp::Signal`) | Block only | no |
-| `BufferedChannel<T, SIZE>` | `SIZE` | Block | `isrWriter()` |
-| `SamplingBufferedChannel<T, SIZE, Policy>` | `SIZE` | Block, KeepNewest, KeepOldest | `isrWriter()` |
+| `SignalChannel` | 0 (rendezvous, no data: `csp::Signal`) | Block only | no |
+| `BufferedChannel<T, SIZE, Policy = BufferPolicy::Block>` | `SIZE` | Block, KeepNewest, KeepOldest | `isrWriter()` |
 
-`Channel<T>` is `SamplingChannel<T, BufferPolicy::Block>`; `BufferedChannel<T, SIZE>` is
-`SamplingBufferedChannel<T, SIZE, BufferPolicy::Block>`. (`One2OneChannel` and
-`BufferedOne2OneChannel`, 1.0 aliases of the same classes, are deprecated since 2.1.0, with a compiler
-warning, and will be removed in 3.0.)
+Channels are not copyable; declare them at namespace scope or as function-local `static`s.
 
-### Rendezvous channels: `Channel`, `Any2OneChannel`, `SignalChannel`
+### Rendezvous channels: `Channel`, `SignalChannel`
 
 - A write completes only when a reader takes the value, and a read only when a writer offers one:
   writer and reader synchronise, and the value is copied directly from the writer to the reader.
 - **Any number of processes may read or write** an end with plain (blocking) operations; they are
-  served one at a time. `Any2OneChannel<T>` names the common case of several writers and one reader;
-  it is the same rendezvous channel.
-- **`SignalChannel<>`** carries no data: `out << Signal{}`, `in >> s` with `Signal s;`.
-- **Block only:** `KeepNewest`/`KeepOldest` on a rendezvous or signal channel is a compile-time error
-  ("KeepNewest/KeepOldest need a buffer"). Use a buffered channel of capacity 1.
+  served one at a time.
+- **`SignalChannel`** carries no data: `out << Signal{}`, `in >> s` with `Signal s;`.
+- **Block only:** a rendezvous or signal channel has no policy; for "latest value" semantics use
+  `BufferedChannel<T, 1, BufferPolicy::KeepNewest>`.
 
-### Buffered channels: `BufferedChannel`, `SamplingBufferedChannel`
+### Buffered channels: `BufferedChannel`
 
 - `SIZE` elements are stored inside the channel object (no RTOS queue, no heap); `SIZE` must be > 0.
 - A reader always takes the oldest element and blocks while the channel is empty.
@@ -327,11 +317,11 @@ struct Command { uint8_t opcode; uint16_t argument; };    // trivially copyable
 struct Sample  { uint32_t timestamp; float value; };
 
 static Channel<Command>          commands;   // rendezvous
-static Any2OneChannel<Command>   requests;   // rendezvous, several writers
-static SignalChannel<>           ready;      // rendezvous without data
+static Channel<Command>          requests;   // rendezvous, several writers (one end each)
+static SignalChannel             ready;      // rendezvous without data
 static BufferedChannel<Sample, 8> samples;   // 8 slots, Block
-static SamplingBufferedChannel<Sample, 1, BufferPolicy::KeepNewest> latest;     // newest value
-static SamplingBufferedChannel<Sample, 4, BufferPolicy::KeepOldest> first_four; // first four values
+static BufferedChannel<Sample, 1, BufferPolicy::KeepNewest> latest;     // newest value
+static BufferedChannel<Sample, 4, BufferPolicy::KeepOldest> first_four; // first four values
 
 class Producer : public CSProcessStatic<256> {
     Chanout<Sample> out = samples.writer();   // this process's own end
@@ -367,7 +357,7 @@ public:
 A channel creates its RTOS objects (semaphores) in its constructor, and a failed creation is fatal.
 Construct channels at **namespace scope** or as **function-local `static`s**, never in an ISR, and
 before the interrupt that writes to one is enabled. Details:
-[configuration guide, section 5](https://github.com/OliverFaust/CSP4CMSIS/blob/v2.1.0/Documentation/CSP4CMSIS_Configuration.md).
+[configuration guide, section 5](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/Documentation/CSP4CMSIS_Configuration.md).
 
 ---
 
@@ -382,10 +372,10 @@ write path**. An ISR writes to a **buffered** channel, which keeps the value unt
 
 ### `isrWriter()`
 
-`SamplingBufferedChannel<T, SIZE, P>::isrWriter()` (and so `BufferedChannel`) returns an
+`BufferedChannel<T, SIZE, P>::isrWriter()` returns an
 `IsrChanout<T>`, the only way to write from an interrupt:
 
-<!-- synopsis: declarations from the v2.1.0 headers -->
+<!-- synopsis: declarations from the v3.0.0 headers -->
 ```cpp
 bool putFromISR(const T& data);   // never blocks
 ```
@@ -426,7 +416,7 @@ The ISR never blocks and never fails.
 
 using namespace csp;
 
-static SamplingBufferedChannel<uint32_t, 1, BufferPolicy::KeepNewest> presses;
+static BufferedChannel<uint32_t, 1, BufferPolicy::KeepNewest> presses;
 
 // Called from the button's interrupt handler (STM32: from the EXTI callback).
 extern "C" void button_pressed_from_isr(void) {
@@ -484,7 +474,7 @@ public:
         while (true) {
             start_transfer();
             done >> ok;                 // kept even if it arrived before this read
-            SleepFor(1000);
+            SleepFor(Seconds(1));
         }
     }
 };
@@ -500,7 +490,7 @@ that one.
 - **Guards:** `in | var` (input guard: when selected, the value is read into `var`), `out | value`
   (output guard: when selected, `value` is written) and `RelTimeoutGuard` (a named object). Pass them to
   the constructor, `Alternative alt(g0, g1, ...)`, or add them with `addBinding(...)`. At most
-  **16 guards** (`CSP4CMSIS_ALT_MAX_GUARDS`); a 17th is a fatal error (2.1.0; 2.0.x ignored it).
+  **16 guards** (`CSP4CMSIS_ALT_MAX_GUARDS`); a 17th is a fatal error.
 - **`int priSelect()`:** blocks until a guard is ready and performs the **first** ready guard in the
   order given; returns its index (0 = first guard).
 - **`int fairSelect()`:** the same, but starts the search after the previous winner, so a guard that is
@@ -555,7 +545,7 @@ An output guard offers a value while the process also listens elsewhere:
 using namespace csp;
 
 static Channel<int>    numbers;
-static SignalChannel<> stop;
+static SignalChannel stop;
 
 class Counter : public CSProcessStatic<256> {
     Chanout<int>   out  = numbers.writer();
@@ -646,7 +636,7 @@ void start_stages(void) {
 
 - **The library allocates nothing.** No `malloc`, `operator new`, `pvPortMalloc()` or other allocator
   call anywhere in the library, during construction or at run time.
-- **Static RTOS objects:** with `CSP4CMSIS_STATIC_ALLOCATION`, every RTOS object the library creates
+- **Static RTOS objects:** by default (unless `CSP4CMSIS_DYNAMIC_ALLOCATION`), every RTOS object the library creates
   (process threads, `Run()`'s completion semaphore, the semaphores of channels and `Barrier`) has a
   statically allocated control block. Process stacks are always static (`CSProcessStatic<N>`).
   `RelTimeoutGuard` creates no RTOS object at all. `Alternative`s and guards are ordinary objects on
@@ -658,26 +648,26 @@ void start_stages(void) {
   NUCLEO-G474RE (book examples); `setvbuf(stdout, NULL, _IONBF, 0)` before the first `printf` removes
   that allocation.
 - What a completely heap-free system additionally needs (RTOS settings and two adapter workarounds):
-  [configuration guide, section 6](https://github.com/OliverFaust/CSP4CMSIS/blob/v2.1.0/Documentation/CSP4CMSIS_Configuration.md).
+  [configuration guide, section 6](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/Documentation/CSP4CMSIS_Configuration.md).
 
 **What is verified:**
 
 - **Protocols, model-checked with ProB** (CSP-M models in
-  [`docs/formal/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v2.1.0/docs/formal)): the rendezvous
+  [`docs/formal/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.0/docs/formal)): the rendezvous
   ALT protocol (`alt_owrv_extended.csp`), the buffered channel with its ALT wakeup
   (`buffered_channel_v2.csp`) and the timer-free ALT timeout (`alt_timeout_deadline.csp`). These are
   models of the protocols, not of the C++ code.
 - **The code, by the regression suite:**
-  [`tests/fvp_sse300/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v2.1.0/tests/fvp_sse300) on the
+  [`tests/fvp_sse300/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.0/tests/fvp_sse300) on the
   Corstone-300 FVP (FreeRTOS and Keil RTX5, Arm Compiler 6 and GCC, including builds with RTOS dynamic
   allocation disabled), and with ST's wrapper on the MPS2 Cortex-M4 FVP;
-  [`tests/hw_nucleo_g474/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v2.1.0/tests/hw_nucleo_g474)
+  [`tests/hw_nucleo_g474/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.0/tests/hw_nucleo_g474)
   on a NUCLEO-G474RE; and compile-time checks in
-  [`tests/compile_checks/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v2.1.0/tests/compile_checks).
+  [`tests/compile_checks/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.0/tests/compile_checks).
 
 ---
 
-## 9. What changed in 2.0 and 2.1
+## 9. What changed in 2.0, 2.1 and 3.0
 
 - **Channels:** rendezvous channels are Block only; sampling policies (KeepNewest/KeepOldest) only on
   buffered channels. Buffered channels are static ring buffers. Elements must be trivially copyable.
@@ -693,8 +683,15 @@ void start_stages(void) {
   `Milliseconds()` round up; `SleepFor(Time)`; `CSP_DEFAULT_NETWORK_PRIORITY`. Deprecated (removed in
   3.0): `Run(CSProcess&)`, `CSP_DEFAULT_TASK_PRIORITY`, `CSP_LEGACY_PARALLEL_PRIORITY`,
   `One2OneChannel`, `BufferedOne2OneChannel`. `CSProcess::endProcess()` (never called) is removed.
+- **3.0.0 (the stable "book API"):** removed the 2.1.0 deprecations, `Any2OneChannel` and
+  `SamplingChannel` (both now `Channel<T>`), `SamplingBufferedChannel` (now `BufferedChannel<T, N, P>`),
+  `SleepFor(ticks)` (now
+  `SleepFor(Ticks(n))`), `Run()` without a mode, and `SignalChannel<>` (now `SignalChannel`). Static
+  allocation is the default and the backend is detected; a wrong interrupt-priority define or a stack
+  below 64 words does not compile. The channel and ALT protocols are unchanged.
 
 Details and migration notes:
-[`docs/CHANGES_2.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v2.1.0/docs/CHANGES_2.0.md),
-[`docs/CHANGES_2.0.1.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v2.1.0/docs/CHANGES_2.0.1.md),
-[`docs/CHANGES_2.1.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v2.1.0/docs/CHANGES_2.1.0.md).
+[`docs/CHANGES_2.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/docs/CHANGES_2.0.md),
+[`docs/CHANGES_2.0.1.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/docs/CHANGES_2.0.1.md),
+[`docs/CHANGES_2.1.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/docs/CHANGES_2.1.0.md),
+[`docs/CHANGES_3.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/docs/CHANGES_3.0.md).
