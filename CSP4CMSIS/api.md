@@ -638,7 +638,8 @@ void start_stages(void) {
   call anywhere in the library, during construction or at run time.
 - **Static RTOS objects:** by default (unless `CSP4CMSIS_DYNAMIC_ALLOCATION`), every RTOS object the library creates
   (process threads, `Run()`'s completion semaphore, the semaphores of channels and `Barrier`) has a
-  statically allocated control block. Process stacks are always static (`CSProcessStatic<N>`).
+  statically allocated control block, and process stacks are members of the process objects
+  (`CSProcessStatic<N>`). With `CSP4CMSIS_DYNAMIC_ALLOCATION` the RTOS allocates both.
   `RelTimeoutGuard` creates no RTOS object at all. `Alternative`s and guards are ordinary objects on
   the process's stack.
 - **Channels** store their elements inside the channel object; declare them static so they live in
