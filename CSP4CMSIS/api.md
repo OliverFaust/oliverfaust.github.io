@@ -1,8 +1,8 @@
-# CSP4CMSIS API Reference (v3.0.0)
+# CSP4CMSIS API Reference (v3.0.1)
 
 CSP4CMSIS is a C++17 library of CSP processes, channels and alternation on top of any CMSIS-RTOS2
-kernel. This page documents the API of **v3.0.0** (tag
-[`v3.0.0`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.0)). The 3.x API is stable: code that
+kernel. This page documents the API of **v3.0.1** (tag
+[`v3.0.1`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.1)). The 3.x API is stable: code that
 compiles with 3.0 compiles with every 3.x release. Everything is in namespace `csp`
 and comes with one include:
 
@@ -14,7 +14,7 @@ using namespace csp;
 
 The pre-2.0 API (1.x, up to v1.3) is archived on a [separate page](./api-1.x).
 
-Every code example on this page is compiled against v3.0.0 by
+Every code example on this page is compiled against v3.0.1 by
 [`tests/doc_examples/`](https://github.com/OliverFaust/CSP4CMSIS/tree/main/tests/doc_examples) in the
 CSP4CMSIS repository.
 
@@ -25,13 +25,13 @@ CSP4CMSIS repository.
 ### 1a. STM32CubeMX / STM32CubeIDE, without packs
 
 This is how the book's examples use the library. Step-by-step, tested guide:
-[`Documentation/CSP4CMSIS_STM32CubeIDE.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/Documentation/CSP4CMSIS_STM32CubeIDE.md).
+[`Documentation/CSP4CMSIS_STM32CubeIDE.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.1/Documentation/CSP4CMSIS_STM32CubeIDE.md).
 
 - **CubeMX:** Middleware **FREERTOS**, **Interface: CMSIS_V2** (ST's CMSIS-RTOS2 wrapper). Static
   allocation is enabled with that interface (Memory Allocation: Dynamic / Static).
-- **Source:** take the folder `csp4cmsis/` and the file `LICENSE` from either the v3.0.0 release's
-  **Source code (zip)** on GitHub ([release page](https://github.com/OliverFaust/CSP4CMSIS/releases/tag/v3.0.0))
-  or the unpacked `OliverFaust.CSP4CMSIS.3.0.0.pack` (a zip archive; same release page). Copy them to
+- **Source:** take the folder `csp4cmsis/` and the file `LICENSE` from either the v3.0.1 release's
+  **Source code (zip)** on GitHub ([release page](https://github.com/OliverFaust/CSP4CMSIS/releases/tag/v3.0.1))
+  or the unpacked `OliverFaust.CSP4CMSIS.3.0.1.pack` (a zip archive; same release page). Copy them to
   `<project>/lib/csp4cmsis/`, outside `Core/` (CubeMX regenerates `Core/`). Add `lib/csp4cmsis/src` as a
   source folder.
 - **Include path:** `lib/csp4cmsis/inc` only.
@@ -43,7 +43,7 @@ This is how the book's examples use the library. Step-by-step, tested guide:
 ### 1b. CMSIS pack
 
 ```bash
-cpackget add -a https://github.com/OliverFaust/CSP4CMSIS/releases/download/v3.0.0/OliverFaust.CSP4CMSIS.3.0.0.pack
+cpackget add -a https://github.com/OliverFaust/CSP4CMSIS/releases/download/v3.0.1/OliverFaust.CSP4CMSIS.3.0.1.pack
 ```
 
 - `-a` accepts the pack's MIT licence non-interactively; without it, `cpackget` asks, and in a script
@@ -78,7 +78,7 @@ adapter, Keil RTX5, and ST's STM32Cube wrapper (FreeRTOS, CubeMX "CMSIS_V2").
 | `CSP_TYPICAL_STACK_WORDS=<words>` | optional, default 256 | A documented starting value for `CSProcessStatic<N>`; not used by the library itself. |
 
 How to choose each value for your board:
-[`Documentation/CSP4CMSIS_Configuration.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/Documentation/CSP4CMSIS_Configuration.md).
+[`Documentation/CSP4CMSIS_Configuration.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.1/Documentation/CSP4CMSIS_Configuration.md).
 
 ---
 
@@ -153,7 +153,7 @@ void start_network(void) {
 CMSIS-RTOS2 thread (`osThreadNew()` with the process's static stack and control block); position in
 the argument list has no meaning.
 
-<!-- synopsis: declarations from the v3.0.0 headers -->
+<!-- synopsis: declarations from the v3.0.1 headers -->
 ```cpp
 template <typename... Processes>
 void Run(ParallelHelper<Processes...> helper, ExecutionMode mode,
@@ -357,7 +357,7 @@ public:
 A channel creates its RTOS objects (semaphores) in its constructor, and a failed creation is fatal.
 Construct channels at **namespace scope** or as **function-local `static`s**, never in an ISR, and
 before the interrupt that writes to one is enabled. Details:
-[configuration guide, section 5](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/Documentation/CSP4CMSIS_Configuration.md).
+[configuration guide, section 5](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.1/Documentation/CSP4CMSIS_Configuration.md).
 
 ---
 
@@ -375,7 +375,7 @@ write path**. An ISR writes to a **buffered** channel, which keeps the value unt
 `BufferedChannel<T, SIZE, P>::isrWriter()` returns an
 `IsrChanout<T>`, the only way to write from an interrupt:
 
-<!-- synopsis: declarations from the v3.0.0 headers -->
+<!-- synopsis: declarations from the v3.0.1 headers -->
 ```cpp
 bool putFromISR(const T& data);   // never blocks
 ```
@@ -649,22 +649,22 @@ void start_stages(void) {
   NUCLEO-G474RE (book examples); `setvbuf(stdout, NULL, _IONBF, 0)` before the first `printf` removes
   that allocation.
 - What a completely heap-free system additionally needs (RTOS settings and two adapter workarounds):
-  [configuration guide, section 6](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/Documentation/CSP4CMSIS_Configuration.md).
+  [configuration guide, section 6](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.1/Documentation/CSP4CMSIS_Configuration.md).
 
 **What is verified:**
 
 - **Protocols, model-checked with ProB** (CSP-M models in
-  [`docs/formal/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.0/docs/formal)): the rendezvous
+  [`docs/formal/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.1/docs/formal)): the rendezvous
   ALT protocol (`alt_owrv_extended.csp`), the buffered channel with its ALT wakeup
   (`buffered_channel_v2.csp`) and the timer-free ALT timeout (`alt_timeout_deadline.csp`). These are
   models of the protocols, not of the C++ code.
 - **The code, by the regression suite:**
-  [`tests/fvp_sse300/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.0/tests/fvp_sse300) on the
+  [`tests/fvp_sse300/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.1/tests/fvp_sse300) on the
   Corstone-300 FVP (FreeRTOS and Keil RTX5, Arm Compiler 6 and GCC, including builds with RTOS dynamic
   allocation disabled), and with ST's wrapper on the MPS2 Cortex-M4 FVP;
-  [`tests/hw_nucleo_g474/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.0/tests/hw_nucleo_g474)
+  [`tests/hw_nucleo_g474/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.1/tests/hw_nucleo_g474)
   on a NUCLEO-G474RE; and compile-time checks in
-  [`tests/compile_checks/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.0/tests/compile_checks).
+  [`tests/compile_checks/`](https://github.com/OliverFaust/CSP4CMSIS/tree/v3.0.1/tests/compile_checks).
 
 ---
 
@@ -690,9 +690,12 @@ void start_stages(void) {
   `SleepFor(Ticks(n))`), `Run()` without a mode, and `SignalChannel<>` (now `SignalChannel`). Static
   allocation is the default and the backend is detected; a wrong interrupt-priority define or a stack
   below 64 words does not compile. The channel and ALT protocols are unchanged.
+- **3.0.1:** the ALT picks the first ready guard with one `__CLZ` (count leading zeros) of a mask of
+  the re-verified guards instead of a loop. No behaviour change, no API change.
 
 Details and migration notes:
-[`docs/CHANGES_2.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/docs/CHANGES_2.0.md),
-[`docs/CHANGES_2.0.1.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/docs/CHANGES_2.0.1.md),
-[`docs/CHANGES_2.1.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/docs/CHANGES_2.1.0.md),
-[`docs/CHANGES_3.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.0/docs/CHANGES_3.0.md).
+[`docs/CHANGES_2.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.1/docs/CHANGES_2.0.md),
+[`docs/CHANGES_2.0.1.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.1/docs/CHANGES_2.0.1.md),
+[`docs/CHANGES_2.1.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.1/docs/CHANGES_2.1.0.md),
+[`docs/CHANGES_3.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.1/docs/CHANGES_3.0.md),
+[`docs/CHANGES_3.0.1.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.1/docs/CHANGES_3.0.1.md).
