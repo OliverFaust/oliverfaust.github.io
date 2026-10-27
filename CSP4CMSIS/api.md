@@ -692,11 +692,6 @@ void start_stages(void) {
   below 64 words does not compile. The channel and ALT protocols are unchanged.
 - **3.0.1:** the ALT picks the first ready guard with one `__CLZ` (count leading zeros) of a mask of
   the re-verified guards instead of a loop. No behaviour change, no API change.
-- **3.1.0 and 3.2.0:** opt-in event tracing to CMSIS-View Event Recorder (`CSP4CMSIS_TRACE`), with a
-  Perfetto view and conformance checks against the formal models (3.2.0; the trace format is
-  experimental). No API change: this page applies unchanged
-  ([`docs/CHANGES_3.1.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.2.0/docs/CHANGES_3.1.0.md),
-  [`docs/CHANGES_3.2.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.2.0/docs/CHANGES_3.2.0.md)).
 
 Details and migration notes:
 [`docs/CHANGES_2.0.md`](https://github.com/OliverFaust/CSP4CMSIS/blob/v3.0.1/docs/CHANGES_2.0.md),
